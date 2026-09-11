@@ -88,15 +88,4 @@ function M.open(title, items, on_choice)
   uji.input.capture(on_key)
 end
 
-function M.await(title, items)
-  return uji.async.await(function(resume)
-    if #items == 0 then
-      uji.notify("nothing to pick")
-      resume(nil)
-      return
-    end
-    M.open(title, items, resume)
-  end)
-end
-
 return M

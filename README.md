@@ -79,19 +79,11 @@ supplies the window, `uji.input.capture` and `uji.ui.exec`.
 Opening suspends the TUI through `uji.ui.exec`, runs the editor on the real
 terminal, then restores. `UJI_EDITOR` wins over `VISUAL` over `EDITOR`.
 
-Uses `rg` or `fd` when present, falls back to `find`. Runs through
-`uji.async.job`, so a large repo never blocks the UI:
-
-```lua
-uji.async.run(function()
-  local choice = picker.await("Open file", M.files())
-  if choice then open(choice) end
-end)
-```
+Uses `rg` when present, falls back to `find`. Runs through `uji.job.start`, so
+a large repo never blocks the UI.
 
 `telescope.fuzzy.score(haystack, needle)` and `.rank(items, query)` are
-reusable; `telescope.picker.open(title, items, on_choice)` is the picker and
-`picker.await(title, items)` is its awaitable form.
+reusable; `telescope.picker.open(title, items, on_choice)` is the picker.
 
 ```lua
 require("telescope").setup({ keys = false })
@@ -99,6 +91,6 @@ require("telescope").setup({ keys = false })
 
 ## Requires
 
-uji with `uji.pack`, `uji.job`, `uji.async`, `uji.input.capture`,
-`uji.status.add`, `uji.agent.context`, `uji.ui.exec`, and `{ priority }` on
-`uji.on` and `uji.ui.open_win`.
+uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.status.add`,
+`uji.agent.context`, `uji.ui.exec`, and `{ priority }` on `uji.on` and
+`uji.ui.open_win`.

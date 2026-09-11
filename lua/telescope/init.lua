@@ -24,36 +24,47 @@ end
 local FIND = "rg --files --hidden --glob '!.git' 2>/dev/null"
   .. " || find . -type f -not -path '*/.git/*'"
 
-function M.files()
-  return uji.async.job({ cmd = FIND })
-end
-
-function M.grep(pattern)
-  local escaped = pattern:gsub("'", "'\\''")
-  return uji.async.job({
-    cmd = "rg --line-number --no-heading --smart-case '" .. escaped .. "' | head -500",
+local function collect(cmd, on_done)
+  local lines = {}
+  uji.job.start({
+    cmd = cmd,
+    on_stdout = function(line) lines[#lines + 1] = line end,
+    on_exit = function() on_done(lines) end,
   })
 end
 
-function M.branches()
-  return uji.async.job({ cmd = "git branch --all --format='%(refname:short)'" })
+function M.files(on_done)
+  collect(FIND, on_done)
+end
+
+function M.grep(pattern, on_done)
+  local escaped = pattern:gsub("'", "'\\''")
+  collect("rg --line-number --no-heading --smart-case '" .. escaped .. "' | head -500", on_done)
+end
+
+function M.branches(on_done)
+  collect("git branch --all --format='%(refname:short)'", on_done)
+end
+
+local function pick(title, items, on_choice)
+  if #items == 0 then
+    uji.notify("nothing to pick")
+    return
+  end
+  picker.open(title, items, function(choice)
+    if choice then on_choice(choice) end
+  end)
 end
 
 function M.setup(opts)
   opts = opts or {}
 
   uji.command("find", function()
-    uji.async.run(function()
-      local choice = picker.await("Open file", M.files())
-      if choice then open(choice) end
-    end)
+    M.files(function(files) pick("Open file", files, open) end)
   end)
 
   uji.command("attach", function()
-    uji.async.run(function()
-      local choice = picker.await("Attach file", M.files())
-      if choice then attach(choice) end
-    end)
+    M.files(function(files) pick("Attach file", files, attach) end)
   end)
 
   uji.command("grep", function(args)
@@ -61,19 +72,18 @@ function M.setup(opts)
       uji.notify("usage: /grep <pattern>")
       return
     end
-    uji.async.run(function()
-      local hits = M.grep(args)
-      local choice = picker.await("Grep: " .. args, hits)
-      if choice then open(choice:match("^([^:]+):") or choice) end
+    M.grep(args, function(hits)
+      pick("Grep: " .. args, hits, function(hit)
+        open(hit:match("^([^:]+):") or hit)
+      end)
     end)
   end)
 
   uji.command("branch", function()
-    uji.async.run(function()
-      local choice = picker.await("Git branches", M.branches())
-      if choice then
-        uji.session.submit("Summarise what changed on branch " .. choice)
-      end
+    M.branches(function(branches)
+      pick("Git branches", branches, function(branch)
+        uji.session.submit("Summarise what changed on branch " .. branch)
+      end)
     end)
   end)
 
@@ -84,10 +94,7 @@ function M.setup(opts)
         items[#items + 1] = message.text:gsub("\n", " ")
       end
     end
-    uji.async.run(function()
-      local choice = picker.await("Session history", items)
-      if choice then uji.input.set(choice) end
-    end)
+    pick("Session history", items, function(text) uji.input.set(text) end)
   end)
 
   if opts.keys ~= false then
