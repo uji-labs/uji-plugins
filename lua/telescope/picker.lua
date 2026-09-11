@@ -55,7 +55,7 @@ local function on_key(event)
     local choice = state.matches[state.cursor]
     local accept = state.on_choice
     close()
-    if choice then accept(choice) end
+    accept(choice)
   elseif event.key == "<Up>" or event.key == "<C-p>" then
     move(-1)
   elseif event.key == "<Down>" or event.key == "<C-n>" then
@@ -86,6 +86,17 @@ function M.open(title, items, on_choice)
   }
   refilter()
   uji.input.capture(on_key)
+end
+
+function M.await(title, items)
+  return uji.async.await(function(resume)
+    if #items == 0 then
+      uji.notify("nothing to pick")
+      resume(nil)
+      return
+    end
+    M.open(title, items, resume)
+  end)
 end
 
 return M
