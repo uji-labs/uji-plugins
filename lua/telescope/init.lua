@@ -2,14 +2,19 @@ local picker = require("telescope.picker")
 
 local M = {}
 
+local configured_editor = nil
+
 local function editor()
-  return os.getenv("UJI_EDITOR") or os.getenv("VISUAL") or os.getenv("EDITOR")
+  return configured_editor
+    or os.getenv("UJI_EDITOR")
+    or os.getenv("VISUAL")
+    or os.getenv("EDITOR")
 end
 
-local function open(path)
+function M.open(path)
   local cmd = editor()
   if not cmd or cmd == "" then
-    uji.notify("$EDITOR is not set")
+    uji.notify("no editor: set $EDITOR, or pass editor = \"nvim\" to telescope.setup")
     return
   end
   uji.ui.exec({ cmd = { "sh", "-c", cmd .. ' "$1"', "sh", path } })
@@ -58,9 +63,10 @@ end
 
 function M.setup(opts)
   opts = opts or {}
+  configured_editor = opts.editor
 
   uji.command("find", function()
-    M.files(function(files) pick("Open file", files, open) end)
+    M.files(function(files) pick("Open file", files, M.open) end)
   end)
 
   uji.command("attach", function()
@@ -74,7 +80,7 @@ function M.setup(opts)
     end
     M.grep(args, function(hits)
       pick("Grep: " .. args, hits, function(hit)
-        open(hit:match("^([^:]+):") or hit)
+        M.open(hit:match("^([^:]+):") or hit)
       end)
     end)
   end)
