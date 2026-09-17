@@ -111,7 +111,7 @@ function M.setup(opts)
     defaults()
   end
   uji.on("status_changed", M.render)
-  uji.on("MessageAppended", M.render)
+  uji.on("message_appended", M.render)
   M.render()
 end
 
