@@ -73,17 +73,17 @@ local function defaults()
 
   uji.status.add("tokens", function()
     local usage = uji.session.usage()
-    if usage.total == 0 then return nil end
-    return { text = compact(usage.total) .. " tok", color = MUTED }
+    local fresh = usage.input + usage.cache_write + usage.output
+    if fresh == 0 then return nil end
+    return { text = compact(fresh) .. " tok", color = MUTED }
   end, { priority = 26 })
 
   uji.status.add("cache", function()
-    local usage = uji.session.usage()
-    local read = usage.cache_read or 0
-    local prefix = usage.input + read + (usage.cache_write or 0)
-    if read == 0 or prefix == 0 then return nil end
+    local last = uji.session.usage().last
+    local prefix = last.input + last.cache_read + last.cache_write
+    if last.cache_read == 0 or prefix == 0 then return nil end
     return {
-      text = string.format("cache %d%%", math.floor(read / prefix * 100 + 0.5)),
+      text = string.format("cache %d%%", math.floor(last.cache_read / prefix * 100 + 0.5)),
       color = MUTED,
     }
   end, { priority = 27 })
@@ -110,8 +110,8 @@ function M.setup(opts)
   if opts.defaults ~= false then
     defaults()
   end
-  uji.on("status_changed", M.render)
-  uji.on("message_appended", M.render)
+  uji.on("status_changed", M.render, { name = "statusline" })
+  uji.on("message_appended", M.render, { name = "statusline" })
   M.render()
 end
 

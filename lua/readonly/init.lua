@@ -71,7 +71,7 @@ function M.setup(paths, opts)
   -- Ahead of the default policy so the refusal is explained, not just a prompt.
   uji.on("tool_call", function(event)
     return M.decide(event.name, event.arguments)
-  end, { priority = opts.priority or 20 })
+  end, { name = "readonly", priority = opts.priority or 20 })
 end
 
 return M

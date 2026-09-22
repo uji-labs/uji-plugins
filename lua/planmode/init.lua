@@ -110,14 +110,14 @@ function M.setup(opts)
 
   uji.on("tool_call", function(event)
     return M.decide(event.name, event.arguments)
-  end, { priority = opts.priority or 10 })
+  end, { name = "planmode", priority = opts.priority or 10 })
 
   uji.on("message_submitted", function()
     state.asking = false
-  end)
+  end, { name = "planmode" })
 
   if opts.confirm ~= false then
-    uji.on("turn_finished", ask_to_accept)
+    uji.on("turn_finished", ask_to_accept, { name = "planmode" })
   end
 
   uji.command("plan", function(args)
