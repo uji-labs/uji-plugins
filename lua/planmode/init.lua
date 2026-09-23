@@ -4,6 +4,67 @@ local WRITE_TOOLS = { "edit_file", "write_file" }
 
 local state = { active = false, asking = false, allow = {} }
 
+local READ_ONLY = {
+  cat = true,
+  cd = true,
+  diff = true,
+  du = true,
+  fd = true,
+  file = true,
+  find = true,
+  grep = true,
+  head = true,
+  ls = true,
+  pwd = true,
+  rg = true,
+  sort = true,
+  stat = true,
+  tail = true,
+  tree = true,
+  ["true"] = true,
+  uniq = true,
+  wc = true,
+  which = true,
+}
+
+local READ_ONLY_GIT = {
+  blame = true,
+  branch = true,
+  diff = true,
+  grep = true,
+  log = true,
+  ["ls-files"] = true,
+  show = true,
+  status = true,
+}
+
+local function read_only_step(step)
+  local program, sub = step:match("^%s*(%S+)%s*(%S*)")
+  if program == "git" then
+    return READ_ONLY_GIT[sub] == true
+  end
+  if program == "sed" then
+    return sub == "-n"
+  end
+  return READ_ONLY[program] == true
+end
+
+local function read_only(cmd)
+  if type(cmd) ~= "string" then
+    return false
+  end
+  local quiet = cmd:gsub("%d*>%s*/dev/null", ""):gsub("%d*>&%d", "")
+  if quiet:find("[>`]") or quiet:find("%$%(") or quiet:find("%-delete") or quiet:find("%-exec") then
+    return false
+  end
+  for step in quiet:gsub("[;&|]+", "\n"):gmatch("[^\n]+") do
+    if step:find("%S") and not read_only_step(step) then
+      return false
+    end
+  end
+  return true
+end
+
 local function nominated(cmd)
   if type(cmd) ~= "string" then
     return false
@@ -18,9 +79,9 @@ end
 
 local REMINDER = [[Plan mode is on. Do not change anything yet.
 
-edit_file and write_file are unavailable this turn. Investigate with read_file,
-list_dir and grep. You can run commands, but the user approves each one, so
-keep them few.
+edit_file and write_file are unavailable this turn. Investigate with read_file
+and read-only commands such as rg, ls, find and git log; those run straight
+away. Any other command needs the user's approval, so keep them rare.
 
 When you understand the task, reply with a numbered plan: which files you would
 change, and what you would change in each. No code yet. The user approves the
@@ -40,7 +101,8 @@ function M.decide(tool, args)
   if not state.active then
     return nil
   end
-  if tool == "run_command" and not nominated(args and args.command) then
+  local cmd = args and args.command
+  if tool == "run_command" and not read_only(cmd) and not nominated(cmd) then
     return { ask = ASK }
   end
   return nil
