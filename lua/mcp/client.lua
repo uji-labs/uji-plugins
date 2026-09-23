@@ -5,7 +5,7 @@ Client.__index = Client
 
 local M = {}
 
-local TIMEOUT = "45"
+local TIMEOUT = 45
 
 function M.start(name, spec)
     local self = setmetatable({
@@ -40,93 +40,44 @@ local function body_of(method, params, id)
 end
 
 function Client:headers()
-    local out = {
-        "-H", "Content-Type: application/json",
-        "-H", "Accept: application/json, text/event-stream",
+    return {
+        ["Content-Type"] = "application/json",
+        Accept = "application/json, text/event-stream",
+        ["Mcp-Session-Id"] = self.session,
+        Authorization = self.token and ("Bearer " .. self.token),
     }
-    if self.session then
-        out[#out + 1] = "-H"
-        out[#out + 1] = "Mcp-Session-Id: " .. self.session
-    end
-    if self.token then
-        out[#out + 1] = "-H"
-        out[#out + 1] = "Authorization: Bearer " .. self.token
-    end
-    return out
 end
 
 function Client:post(payload, retry)
-    local lines = {}
-    local cmd = { "curl", "-sS", "-i", "--max-time", TIMEOUT, "-X", "POST" }
-    for _, part in ipairs(self:headers()) do
-        cmd[#cmd + 1] = part
-    end
-    cmd[#cmd + 1] = "-d"
-    cmd[#cmd + 1] = payload
-    cmd[#cmd + 1] = self.spec.url
-    uji.job.start({
-        cmd = cmd,
-        on_stdout = function(line) lines[#lines + 1] = line end,
-        on_stderr = function(line) uji.notify(self.name .. ": " .. line) end,
-        on_exit = function(code)
-            if code ~= 0 then
-                self:fail("request failed (curl exit " .. tostring(code) .. ")")
-                return
-            end
-            self:answer(lines, payload, retry)
-        end,
-    })
-end
-
-local function split_headers(lines)
-    local headers, body, at = {}, {}, 1
-    while at <= #lines do
-        local line = lines[at]:gsub("\r$", "")
-        at = at + 1
-        if line == "" then break end
-        headers[#headers + 1] = line
-    end
-    while at <= #lines do
-        body[#body + 1] = lines[at]:gsub("\r$", "")
-        at = at + 1
-    end
-    return headers, body
-end
-
-local function header(headers, name)
-    local want = name:lower()
-    for _, line in ipairs(headers) do
-        local key, value = line:match("^([^:]+):%s*(.+)$")
-        if key and key:lower() == want then
-            return value
+    uji.http.request({
+        url = self.spec.url,
+        method = "POST",
+        headers = self:headers(),
+        body = payload,
+        timeout = TIMEOUT,
+    }, function(response, err)
+        if not response then
+            self:fail("request failed: " .. err)
+            return
         end
-    end
-    return nil
+        self:answer(response, payload, retry)
+    end)
 end
 
-local function status_of(headers)
-    return tonumber((headers[1] or ""):match("^HTTP/[%d%.]+%s+(%d+)")) or 0
-end
+function Client:answer(response, payload, retry)
+    local headers = response.headers
+    self.session = headers["mcp-session-id"] or self.session
 
-function Client:answer(lines, payload, retry)
-    local headers, body = split_headers(lines)
-    local status = status_of(headers)
-    local session = header(headers, "Mcp-Session-Id")
-    if session then
-        self.session = session
-    end
-
-    if status == 401 and not retry then
-        self:authorize(header(headers, "WWW-Authenticate"), payload)
+    if response.status == 401 and not retry then
+        self:authorize(headers["www-authenticate"], payload)
         return
     end
-    if status < 200 or status >= 300 then
-        self:fail("server answered " .. tostring(status))
+    if response.status < 200 or response.status >= 300 then
+        self:fail("server answered " .. response.status)
         return
     end
-    for _, line in ipairs(body) do
-        local data = line:match("^data:%s*(.+)$")
-        self:receive(data or line)
+    for line in response.body:gmatch("[^\r\n]+") do
+        self:receive(line:match("^data:%s*(.+)$") or line)
     end
 end
 

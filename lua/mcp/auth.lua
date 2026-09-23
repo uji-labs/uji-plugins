@@ -1,38 +1,34 @@
 local M = {}
 
 local REDIRECT = "http://localhost/callback"
-local TIMEOUT = "30"
+local TIMEOUT = 30
 
-local function fetch(cmd, done)
-    local lines = {}
-    uji.job.start({
-        cmd = cmd,
-        on_stdout = function(line) lines[#lines + 1] = line end,
-        on_stderr = function(_) end,
-        on_exit = function(code)
-            if code ~= 0 then
-                done(nil, "request failed (curl exit " .. tostring(code) .. ")")
-                return
-            end
-            local ok, parsed = pcall(uji.json.decode, table.concat(lines, "\n"))
-            if not ok or type(parsed) ~= "table" then
-                done(nil, "response was not JSON")
-            else
-                done(parsed)
-            end
-        end,
-    })
+local function fetch(request, done)
+    request.timeout = TIMEOUT
+    uji.http.request(request, function(response, err)
+        if not response then
+            done(nil, "request failed: " .. err)
+            return
+        end
+        local ok, parsed = pcall(uji.json.decode, response.body)
+        if not ok or type(parsed) ~= "table" then
+            done(nil, "response was not JSON")
+        else
+            done(parsed)
+        end
+    end)
 end
 
 local function get(url, done)
-    fetch({ "curl", "-sS", "-L", "--max-time", TIMEOUT, url }, done)
+    fetch({ url = url }, done)
 end
 
 local function post(url, payload, done)
     fetch({
-        "curl", "-sS", "--max-time", TIMEOUT, "-X", "POST",
-        "-H", "Content-Type: application/json",
-        "-d", uji.json.encode(payload), url,
+        url = url,
+        method = "POST",
+        headers = { ["Content-Type"] = "application/json" },
+        body = uji.json.encode(payload),
     }, done)
 end
 
@@ -44,9 +40,10 @@ local function form(url, fields, done)
         end)
     end
     fetch({
-        "curl", "-sS", "--max-time", TIMEOUT, "-X", "POST",
-        "-H", "Content-Type: application/x-www-form-urlencoded",
-        "-d", table.concat(parts, "&"), url,
+        url = url,
+        method = "POST",
+        headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
+        body = table.concat(parts, "&"),
     }, done)
 end
 

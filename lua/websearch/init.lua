@@ -84,20 +84,15 @@ function M.parse_duck(body, want)
   return render(hits, want)
 end
 
-local function run(cmd, done, finish)
-  local body = {}
-  uji.job.start({
-    cmd = cmd,
-    on_stdout = function(line) body[#body + 1] = line end,
-    on_stderr = function(line) uji.notify("web_search: " .. line) end,
-    on_exit = function(code)
-      if code ~= 0 then
-        done("error: search request failed (curl exit " .. tostring(code) .. ")")
-      else
-        done(finish(table.concat(body, "\n")))
-      end
-    end,
-  })
+local function fetch(request, done, finish)
+  request.timeout = state.opts.timeout
+  uji.http.request(request, function(response, err)
+    if response then
+      done(finish(response.body))
+    else
+      done("error: search request failed: " .. err)
+    end
+  end)
 end
 
 function M.backend()
@@ -109,19 +104,23 @@ end
 
 local function search(query, want, done)
   local opts = state.opts
-  local timeout = tostring(opts.timeout)
   if M.backend() == "brave" then
-    local url = string.format("%s?q=%s&count=%d", opts.brave_endpoint, escape(query), want)
-    run({
-      "curl", "-sS", "--max-time", timeout,
-      "-H", "Accept: application/json",
-      "-H", "X-Subscription-Token: " .. os.getenv(opts.key_env),
-      url,
+    fetch({
+      url = string.format("%s?q=%s&count=%d", opts.brave_endpoint, escape(query), want),
+      headers = {
+        Accept = "application/json",
+        ["X-Subscription-Token"] = os.getenv(opts.key_env),
+      },
     }, done, function(body) return M.parse_brave(body, want) end)
   else
-    run({
-      "curl", "-sS", "--max-time", timeout, "-A", opts.agent,
-      "-d", "q=" .. escape(query), opts.duck_endpoint,
+    fetch({
+      url = opts.duck_endpoint,
+      method = "POST",
+      headers = {
+        ["User-Agent"] = opts.agent,
+        ["Content-Type"] = "application/x-www-form-urlencoded",
+      },
+      body = "q=" .. escape(query),
     }, done, function(body) return M.parse_duck(body, want) end)
   end
 end
