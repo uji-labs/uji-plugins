@@ -74,9 +74,9 @@ function M.setup(opts)
   }
   M.discover()
 
-  uji.agent.context("skills", announce, { priority = 20 })
+  uji.context.add("skills", announce, { priority = 20 })
 
-  uji.command("skills", function()
+  uji.command.add("skills", function()
     M.discover()
     if #state.found == 0 then
       uji.notify("no skills found")

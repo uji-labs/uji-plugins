@@ -16,7 +16,7 @@ function M.open(path)
     uji.notify("no editor: set $EDITOR, or pass editor = \"nvim\" to telescope.setup")
     return
   end
-  uji.ui.exec({ cmd = { "sh", "-c", cmd .. ' "$1"', "sh", path } })
+  uji.ui.exec({ "sh", "-c", cmd .. ' "$1"', "sh", path })
 end
 
 local function attach(path)
@@ -60,14 +60,14 @@ local function pick(title, items, on_choice, preview)
   end)
 end
 
--- Live search: each settled keystroke re-runs ripgrep. `token` ties the results
--- to the query that asked for them, so a slow search cannot overwrite a newer one.
+-- Live search: each settled keystroke re-runs ripgrep. `show` is tied to the
+-- query that asked for it, so a slow search cannot overwrite a newer one.
 local function live_grep()
   uji.ui.pick({
     title = "Search",
-    on_query = function(query, token)
+    on_query = function(query, show)
       if query == "" then
-        uji.ui.pick_items({}, token)
+        show({})
         return
       end
       local escaped = query:gsub("'", "'\\''")
@@ -75,7 +75,7 @@ local function live_grep()
       uji.job.start({
         cmd = "rg --line-number --no-heading --smart-case '" .. escaped .. "' | head -200",
         on_stdout = function(line) hits[#hits + 1] = line end,
-        on_exit = function() uji.ui.pick_items(hits, token) end,
+        on_exit = function() show(hits) end,
       })
     end,
   }, function(choice)
@@ -87,17 +87,17 @@ function M.setup(opts)
   opts = opts or {}
   configured_editor = opts.editor
 
-  uji.action.set("telescope_search", live_grep)
+  uji.action.add("telescope_search", live_grep)
 
-  uji.command("find", function()
+  uji.command.add("find", function()
     M.files(function(files) pick("Open file", files, M.open) end)
   end)
 
-  uji.command("attach", function()
+  uji.command.add("attach", function()
     M.files(function(files) pick("Attach file", files, attach) end)
   end)
 
-  uji.command("grep", function(args)
+  uji.command.add("grep", function(args)
     if args == "" then
       live_grep()
       return
@@ -109,7 +109,7 @@ function M.setup(opts)
     end)
   end)
 
-  uji.command("branch", function()
+  uji.command.add("branch", function()
     M.branches(function(branches)
       pick("Git branches", branches, function(branch)
         uji.session.submit("Summarise what changed on branch " .. branch)
@@ -119,7 +119,7 @@ function M.setup(opts)
 
   -- Search the whole transcript, not only what you typed: the thing you are
   -- looking for is often in a tool result or a reply.
-  uji.command("history", function()
+  uji.command.add("history", function()
     local items, full = {}, {}
     for _, message in ipairs(uji.session.messages()) do
       local text = (message.text or ""):gsub("%s+", " ")
@@ -140,11 +140,11 @@ function M.setup(opts)
   end)
 
   if opts.keys ~= false then
-    uji.keymap.set("normal", "<C-p>", { command = "find" })
-    uji.keymap.set("normal", "<C-a>", { command = "attach" })
-    uji.keymap.set("normal", "<C-g>", { command = "branch" })
-    uji.keymap.set("normal", "<C-r>", { command = "history" })
-    uji.keymap.set("normal", "<C-f>", "telescope_search")
+    uji.keymap.add("normal", "<C-p>", { command = "find" })
+    uji.keymap.add("normal", "<C-a>", { command = "attach" })
+    uji.keymap.add("normal", "<C-g>", { command = "branch" })
+    uji.keymap.add("normal", "<C-r>", { command = "history" })
+    uji.keymap.add("normal", "<C-f>", "telescope_search")
   end
 end
 

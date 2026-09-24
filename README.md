@@ -51,10 +51,11 @@ shows `PLAN` in the footer.
 | `/plan <task>` | toggle on and submit the task as plan-only |
 | `/approve` | leave plan mode and execute the plan just given |
 
-`read_file`, `list_dir` and `grep` stay allowed. Everything else is denied via
-`uji.on("tool_call", …)` at priority 10, so it rules before policy registered
+`read_file` and read-only commands such as `rg`, `ls` and `git log` stay
+allowed. `edit_file` and `write_file` are disabled, and any other command asks
+first via `uji.on("before_tool", …)` at priority 10, so it rules before policy registered
 later. The reason is also injected into the system prompt through
-`uji.agent.context`, so the model knows before it tries.
+`uji.context.add`, so the model knows before it tries.
 
 ```lua
 require("planmode").setup({ keys = false, priority = 10 })
@@ -92,5 +93,5 @@ require("telescope").setup({ keys = false })
 ## Requires
 
 uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.status.add`,
-`uji.agent.context`, `uji.ui.exec`, and `{ priority }` on `uji.on` and
+`uji.context.add`, `uji.ui.exec`, and `{ priority }` on `uji.on` and
 `uji.ui.open_win`.

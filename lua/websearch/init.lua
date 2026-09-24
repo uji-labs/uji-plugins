@@ -86,7 +86,7 @@ end
 
 local function fetch(request, done, finish)
   request.timeout = state.opts.timeout
-  uji.http.request(request, function(response, err)
+  return uji.http.request(request, function(response, err)
     if response then
       done(finish(response.body))
     else
@@ -105,7 +105,7 @@ end
 local function search(query, want, done)
   local opts = state.opts
   if M.backend() == "brave" then
-    fetch({
+    return fetch({
       url = string.format("%s?q=%s&count=%d", opts.brave_endpoint, escape(query), want),
       headers = {
         Accept = "application/json",
@@ -113,7 +113,7 @@ local function search(query, want, done)
       },
     }, done, function(body) return M.parse_brave(body, want) end)
   else
-    fetch({
+    return fetch({
       url = opts.duck_endpoint,
       method = "POST",
       headers = {
@@ -128,11 +128,10 @@ end
 function M.setup(opts)
   state.opts = merged(DEFAULTS, opts)
 
-  uji.tool.register("web_search", {
+  uji.tool.add("web_search", {
     description = "Search the web and return the top results as title, url and snippet. "
       .. "Use it for current information, documentation and error messages you do not recognise.",
     subject = "web search",
-    defer = true,
     parameters = {
       type = "object",
       properties = {
@@ -141,14 +140,13 @@ function M.setup(opts)
       },
       required = { "query" },
     },
-    run = function(args, done)
+    run = function(args, ctx)
       local query = args and args.query
       if type(query) ~= "string" or query == "" then
-        done("error: query is required")
-        return
+        return "error: query is required"
       end
       local want = tonumber(args.count) or state.opts.count
-      search(query, math.max(1, math.min(want, 20)), done)
+      return search(query, math.max(1, math.min(want, 20)), ctx.done)
     end,
   })
 end

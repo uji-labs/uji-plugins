@@ -160,7 +160,7 @@ function M.setup(opts)
   opts = opts or {}
   state.allow = opts.allow or {}
 
-  uji.agent.context("plan", function()
+  uji.context.add("plan", function()
     if not state.active then return nil end
     return { text = REMINDER, at = "turn" }
   end, { priority = 10 })
@@ -170,7 +170,7 @@ function M.setup(opts)
     return { text = "plan", color = "yellow" }
   end, { priority = 5 })
 
-  uji.on("tool_call", function(event)
+  uji.on("before_tool", function(event)
     return M.decide(event.name, event.arguments)
   end, { name = "planmode", priority = opts.priority or 10 })
 
@@ -182,7 +182,7 @@ function M.setup(opts)
     uji.on("turn_finished", ask_to_accept, { name = "planmode" })
   end
 
-  uji.command("plan", function(args)
+  uji.command.add("plan", function(args)
     if state.active then
       M.leave()
       uji.notify("plan mode off")
@@ -196,7 +196,7 @@ function M.setup(opts)
     end
   end)
 
-  uji.command("approve", function()
+  uji.command.add("approve", function()
     if not state.active then
       uji.notify("not in plan mode")
       return
@@ -209,7 +209,7 @@ function M.setup(opts)
   end)
 
   if opts.keys ~= false then
-    uji.keymap.set("normal", "<C-b>", { command = "plan" })
+    uji.keymap.add("normal", "<C-b>", { command = "plan" })
   end
 end
 

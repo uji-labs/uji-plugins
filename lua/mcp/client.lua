@@ -111,7 +111,7 @@ function Client:request(method, params, callback)
     if self.http then
         self:post(payload, false)
     else
-        uji.job.send(self.job, payload)
+        self.job.send(payload)
     end
 end
 
@@ -120,7 +120,7 @@ function Client:notify(method, params)
     if self.http then
         self:post(payload, false)
     else
-        uji.job.send(self.job, payload)
+        self.job.send(payload)
     end
 end
 
@@ -143,7 +143,7 @@ end
 function Client:closed(code)
     self.ready = false
     for _, name in ipairs(self.registered) do
-        uji.tool.unregister(name)
+        uji.tool.remove(name)
     end
     self.registered = {}
     for id, callback in pairs(self.pending) do
@@ -159,7 +159,7 @@ function Client:stop()
     if self.http then
         self:closed(0)
     else
-        uji.job.stop(self.job)
+        self.job.stop()
     end
 end
 

@@ -136,7 +136,7 @@ function M.authorize(name, server, client, done)
         server.authorization_endpoint, client.client_id, REDIRECT, challenge)
 
     uji.notify(name .. ": opening your browser to sign in")
-    uji.ui.exec({ "open", target })
+    uji.ui.exec({ "sh", "-c", 'if command -v xdg-open >/dev/null; then xdg-open "$1"; else open "$1"; fi', "sh", target })
     uji.ui.prompt({
         title = "Paste the URL your browser was redirected to",
     }, function(pasted)

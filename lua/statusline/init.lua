@@ -27,7 +27,7 @@ end
 
 function M.render()
   if not state.win then return end
-  local parts = uji.status.segments()
+  local parts = uji.status.render()
   if #parts == 0 then
     uji.ui.clear(state.win)
     return

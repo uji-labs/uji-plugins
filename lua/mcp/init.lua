@@ -57,17 +57,16 @@ end
 local function register(server, tools)
     for _, tool in ipairs(tools or {}) do
         local name = server.name .. "__" .. tool.name
-        uji.tool.register(name, {
+        uji.tool.add(name, {
             description = tool.description or tool.name,
             parameters = tool.inputSchema or { type = "object", properties = {} },
             subject = tool.name,
-            defer = true,
-            run = function(args, done)
+            run = function(args, ctx)
                 server:request("tools/call", { name = tool.name, arguments = args }, function(result, err)
                     if err then
-                        done("error: " .. (err.message or "call failed"))
+                        ctx.done("error: " .. (err.message or "call failed"))
                     else
-                        done(render(result))
+                        ctx.done(render(result))
                     end
                 end)
             end,
@@ -187,7 +186,7 @@ function M.setup(opts)
     end
   end
 
-  uji.command("mcp", function(args)
+  uji.command.add("mcp", function(args)
     local verb, rest = args:match("^(%S*)%s*(.*)$")
     if verb == "add" then
       if rest ~= "" then

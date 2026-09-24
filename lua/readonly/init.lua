@@ -1,6 +1,6 @@
 -- Make some tool roots read-only.
 --
--- `uji.tools.roots` grants read AND write, because all the file tools share one
+-- `uji.tool.roots` grants read AND write, because all the file tools share one
 -- confinement check. That is usually wrong for reference material: you want the
 -- agent to read a sibling repo, not edit it.
 --
@@ -69,7 +69,7 @@ function M.setup(paths, opts)
   end
 
   -- Ahead of the default policy so the refusal is explained, not just a prompt.
-  uji.on("tool_call", function(event)
+  uji.on("before_tool", function(event)
     return M.decide(event.name, event.arguments)
   end, { name = "readonly", priority = opts.priority or 20 })
 end
