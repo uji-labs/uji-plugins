@@ -2,7 +2,7 @@ local M = {}
 
 local WRITE_TOOLS = { "edit_file", "write_file" }
 
-local state = { active = false, asking = false, allow = {} }
+local state = { active = false, asking = false, left = false, allow = {} }
 
 local READ_ONLY = {
   cat = true,
@@ -87,6 +87,8 @@ When you understand the task, reply with a numbered plan: which files you would
 change, and what you would change in each. No code yet. The user approves the
 plan before anything runs.]]
 
+local OFF = "Plan mode is off. edit_file and write_file are available again."
+
 local ASK = "Run this while planning?"
 
 local ACCEPT = "Accept and execute"
@@ -111,6 +113,7 @@ end
 function M.enter()
   state.active = true
   state.asking = false
+  state.left = false
   uji.tool.disable(WRITE_TOOLS)
   uji.emit("status_changed", {})
 end
@@ -118,6 +121,7 @@ end
 function M.leave()
   state.active = false
   state.asking = false
+  state.left = true
   uji.tool.enable(WRITE_TOOLS)
   uji.emit("status_changed", {})
 end
@@ -161,8 +165,10 @@ function M.setup(opts)
   state.allow = opts.allow or {}
 
   uji.context.add("plan", function()
-    if not state.active then return nil end
-    return { text = REMINDER, at = "turn" }
+    if state.active then return { text = REMINDER, at = "turn" } end
+    if not state.left then return nil end
+    state.left = false
+    return { text = OFF, at = "turn" }
   end, { priority = 10 })
 
   uji.status.add("plan", function()

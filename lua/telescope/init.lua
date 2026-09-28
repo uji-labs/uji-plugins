@@ -43,7 +43,7 @@ end
 
 function M.grep(pattern, on_done)
   local escaped = pattern:gsub("'", "'\\''")
-  collect("rg --line-number --no-heading --smart-case '" .. escaped .. "' | head -500", on_done)
+  collect("rg --line-number --no-heading --smart-case '" .. escaped .. "' < /dev/null | head -500", on_done)
 end
 
 function M.branches(on_done)
@@ -73,7 +73,7 @@ local function live_grep()
       local escaped = query:gsub("'", "'\\''")
       local hits = {}
       uji.job.start({
-        cmd = "rg --line-number --no-heading --smart-case '" .. escaped .. "' | head -200",
+        cmd = "rg --line-number --no-heading --smart-case '" .. escaped .. "' < /dev/null | head -200",
         on_stdout = function(line) hits[#hits + 1] = line end,
         on_exit = function() show(hits) end,
       })
