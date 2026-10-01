@@ -1,9 +1,15 @@
 local M = {}
 
-local state = { roots = {}, found = {} }
+local state = { roots = {}, found = {}, commands = {}, pending = nil }
+
+local ESCAPES = { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;", ["'"] = "&apos;" }
 
 local function home(path)
   return (path:gsub("^~", os.getenv("HOME") or "~"))
+end
+
+local function escape(text)
+  return (tostring(text):gsub("[&<>\"']", ESCAPES))
 end
 
 local function slurp(path)
@@ -24,12 +30,16 @@ local function declared(text)
   return (name:gsub("%s+$", "")), (description:gsub("%s+$", ""))
 end
 
+local function body(text)
+  local stripped = text:gsub("^%-%-%-%s*\n.-\n%-%-%-[^\n]*\n?", "")
+  return (stripped:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
 function M.discover()
   state.found = {}
   local seen = {}
   for _, root in ipairs(state.roots) do
-    local dir = home(root)
-    local handle = io.popen(string.format("find %q -maxdepth 3 -name SKILL.md 2>/dev/null", dir))
+    local handle = io.popen(string.format("find %q -maxdepth 3 -name SKILL.md 2>/dev/null", home(root)))
     if handle then
       for path in handle:lines() do
         local name, description = declared(slurp(path))
@@ -56,13 +66,69 @@ end
 
 local function announce()
   if #state.found == 0 then return nil end
-  local lines = { "# Skills", "",
-    "Capabilities available as scripts. Read SKILL.md in the folder for how to",
-    "use one, then run its scripts with run_command using the full path.", "" }
+  local lines = {
+    "The following skills provide specialized instructions for specific tasks.",
+    "Use the read_file tool to load a skill's file when the task matches its description.",
+    "When a skill file references a relative path, resolve it against the skill directory "
+      .. "(the folder holding SKILL.md) and use that absolute path in tool calls.",
+    "",
+    "<available_skills>",
+  }
   for _, skill in ipairs(state.found) do
-    lines[#lines + 1] = string.format("- %s: %s\n  %s", skill.name, skill.description, skill.dir)
+    lines[#lines + 1] = "  <skill>"
+    lines[#lines + 1] = "    <name>" .. escape(skill.name) .. "</name>"
+    lines[#lines + 1] = "    <description>" .. escape(skill.description) .. "</description>"
+    lines[#lines + 1] = "    <location>" .. escape(skill.path) .. "</location>"
+    lines[#lines + 1] = "  </skill>"
   end
+  lines[#lines + 1] = "</available_skills>"
   return table.concat(lines, "\n")
+end
+
+local function invoked()
+  local skill = state.pending
+  state.pending = nil
+  local text = skill and slurp(skill.path)
+  if not text then return nil end
+  return {
+    at = "turn",
+    text = string.format(
+      '<skill name="%s" location="%s">\nReferences are relative to %s.\n\n%s\n</skill>',
+      escape(skill.name), escape(skill.path), skill.dir, body(text)
+    ),
+  }
+end
+
+local function reachable()
+  local roots = uji.tool.roots()
+  local present = {}
+  for _, root in ipairs(roots) do present[home(root)] = true end
+  for _, root in ipairs(state.roots) do
+    local dir = home(root)
+    if dir:sub(1, 1) == "/" and not present[dir] then
+      present[dir] = true
+      roots[#roots + 1] = dir
+    end
+  end
+  uji.tool.roots(roots)
+end
+
+local function register()
+  for _, name in ipairs(state.commands) do
+    uji.command.remove(name)
+  end
+  state.commands = {}
+  for _, skill in ipairs(state.found) do
+    local name = "skill:" .. skill.name
+    state.commands[#state.commands + 1] = name
+    uji.command.add(name, {
+      desc = skill.description,
+      handler = function(args)
+        state.pending = skill
+        uji.session.submit(args ~= "" and args or ("Use the " .. skill.name .. " skill."))
+      end,
+    })
+  end
 end
 
 function M.setup(opts)
@@ -73,11 +139,15 @@ function M.setup(opts)
     ".agents/skills",
   }
   M.discover()
+  reachable()
+  register()
 
   uji.context.add("skills", announce, { priority = 20 })
+  uji.context.add("skill", invoked, { priority = 21 })
 
   uji.command.add("skills", function()
     M.discover()
+    register()
     if #state.found == 0 then
       uji.notify("no skills found")
       return

@@ -1,13 +1,12 @@
 local M = {}
 
+local EXA = "https://mcp.exa.ai/mcp"
+
 local DEFAULTS = {
-  backend = "auto",
-  key_env = "BRAVE_API_KEY",
-  brave_endpoint = "https://api.search.brave.com/res/v1/web/search",
-  duck_endpoint = "https://html.duckduckgo.com/html/",
-  agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+  policy = "allow",
   count = 5,
-  timeout = 20,
+  chars = 20000,
+  timeout = 30,
 }
 
 local state = { opts = DEFAULTS }
@@ -19,123 +18,60 @@ local function merged(base, over)
   return out
 end
 
-local function escape(text)
-  return (tostring(text):gsub("[^%w%-%._~]", function(c)
-    return string.format("%%%02X", string.byte(c))
-  end))
+local function answer(response)
+  local ok, reply = pcall(uji.json.decode, response.body:match("data: ([^\n]+)") or response.body)
+  if not ok or type(reply) ~= "table" then
+    return nil, "exa sent an answer that is not JSON"
+  end
+  if type(reply.error) == "table" then
+    return nil, tostring(reply.error.message)
+  end
+  local result = type(reply.result) == "table" and reply.result or {}
+  local texts = {}
+  for _, item in ipairs(result.content or {}) do
+    if item.type == "text" then texts[#texts + 1] = item.text end
+  end
+  local text = table.concat(texts, "\n\n")
+  if result.isError then
+    return nil, text
+  end
+  return text
 end
 
-local function unescape(text)
-  return (tostring(text or ""):gsub("%%(%x%x)", function(hex)
-    return string.char(tonumber(hex, 16))
-  end))
-end
-
-local ENTITIES = {
-  ["&amp;"] = "&", ["&lt;"] = "<", ["&gt;"] = ">",
-  ["&quot;"] = '"', ["&#39;"] = "'", ["&#x27;"] = "'", ["&nbsp;"] = " ",
-}
-
-local function plain(text)
-  text = tostring(text or ""):gsub("<[^>]*>", "")
-  text = text:gsub("&%a+;", ENTITIES):gsub("&#x?%w+;", ENTITIES)
-  return (text:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", ""))
-end
-
-local function render(hits, want)
-  if #hits == 0 then return "No results." end
-  local lines = {}
-  for i, hit in ipairs(hits) do
-    if i > want then break end
-    lines[#lines + 1] = string.format("%d. %s\n   %s\n   %s", i, hit.title, hit.url, hit.snippet)
-  end
-  return table.concat(lines, "\n\n")
-end
-
-function M.parse_brave(body, want)
-  local ok, parsed = pcall(uji.json.decode, body)
-  if not ok or type(parsed) ~= "table" then
-    return "error: search returned something that was not JSON"
-  end
-  if parsed.error then
-    return "error: " .. tostring(parsed.error.detail or parsed.error.code or "search failed")
-  end
-  local hits = {}
-  for _, hit in ipairs((parsed.web and parsed.web.results) or {}) do
-    hits[#hits + 1] = { title = plain(hit.title), url = tostring(hit.url), snippet = plain(hit.description) }
-  end
-  return render(hits, want)
-end
-
-function M.parse_duck(body, want)
-  local hits = {}
-  local snippets = {}
-  for snippet in body:gmatch('result__snippet[^>]*>(.-)</a>') do
-    snippets[#snippets + 1] = plain(snippet)
-  end
-  local at = 0
-  for url, title in body:gmatch('result__a[^>]*href="([^"]+)"[^>]*>(.-)</a>') do
-    at = at + 1
-    local target = url
-    local wrapped = target:match("^//duckduckgo%.com/l/.*[?&]uddg=([^&]+)")
-    if wrapped then target = unescape(wrapped) end
-    hits[#hits + 1] = { title = plain(title), url = target, snippet = snippets[at] or "" }
-  end
-  return render(hits, want)
-end
-
-local function fetch(request, done, finish)
-  request.timeout = state.opts.timeout
-  return uji.http.request(request, function(response, err)
-    if response then
-      done(finish(response.body))
-    else
-      done("error: search request failed: " .. err)
+local function exa(tool, arguments, empty, done)
+  return uji.http.request({
+    url = EXA,
+    method = "POST",
+    timeout = state.opts.timeout,
+    headers = { ["Content-Type"] = "application/json", Accept = "application/json, text/event-stream" },
+    body = uji.json.encode({ jsonrpc = "2.0", id = 1, method = "tools/call", params = { name = tool, arguments = arguments } }),
+  }, function(response, err)
+    if not response then
+      return done("error: " .. err)
     end
+    if response.status ~= 200 then
+      return done("error: exa answered " .. response.status .. ": " .. response.body:sub(1, 300))
+    end
+    local text, problem = answer(response)
+    if not text then
+      return done("error: " .. problem)
+    end
+    done(text ~= "" and text or empty)
   end)
-end
-
-function M.backend()
-  local opts = state.opts
-  if opts.backend ~= "auto" then return opts.backend end
-  local key = os.getenv(opts.key_env)
-  return (key and key ~= "") and "brave" or "duckduckgo"
-end
-
-local function search(query, want, done)
-  local opts = state.opts
-  if M.backend() == "brave" then
-    return fetch({
-      url = string.format("%s?q=%s&count=%d", opts.brave_endpoint, escape(query), want),
-      headers = {
-        Accept = "application/json",
-        ["X-Subscription-Token"] = os.getenv(opts.key_env),
-      },
-    }, done, function(body) return M.parse_brave(body, want) end)
-  else
-    return fetch({
-      url = opts.duck_endpoint,
-      method = "POST",
-      headers = {
-        ["User-Agent"] = opts.agent,
-        ["Content-Type"] = "application/x-www-form-urlencoded",
-      },
-      body = "q=" .. escape(query),
-    }, done, function(body) return M.parse_duck(body, want) end)
-  end
 end
 
 function M.setup(opts)
   state.opts = merged(DEFAULTS, opts)
 
   uji.tool.add("web_search", {
-    description = "Search the web and return the top results as title, url and snippet. "
+    description = "Search the web and return the top results with their title, url and highlights. "
       .. "Use it for current information, documentation and error messages you do not recognise.",
     subject = "web search",
+    policy = state.opts.policy,
     parameters = {
       type = "object",
       properties = {
-        query = { type = "string", description = "What to search for." },
+        query = { type = "string", description = "What to search for, described as the page you want to find." },
         count = { type = "integer", description = "How many results to return." },
       },
       required = { "query" },
@@ -145,8 +81,33 @@ function M.setup(opts)
       if type(query) ~= "string" or query == "" then
         return "error: query is required"
       end
-      local want = tonumber(args.count) or state.opts.count
-      return search(query, math.max(1, math.min(want, 20)), ctx.done)
+      local count = math.max(1, math.min(tonumber(args.count) or state.opts.count, 20))
+      return exa("web_search_exa", { query = query, objective = query, numResults = count }, "No results.", ctx.done)
+    end,
+  })
+
+  uji.tool.add("web_fetch", {
+    description = "Fetch a web page and return its text. "
+      .. "Use it to read a page that web_search found or a URL you were given.",
+    subject = function(args)
+      return type(args) == "table" and type(args.url) == "string" and args.url or "web fetch"
+    end,
+    policy = state.opts.policy,
+    parameters = {
+      type = "object",
+      properties = {
+        url = { type = "string", description = "The http or https address of the page." },
+        chars = { type = "integer", description = "How many characters of the page's text to return at most." },
+      },
+      required = { "url" },
+    },
+    run = function(args, ctx)
+      local url = args and args.url
+      if type(url) ~= "string" or not url:match("^https?://") then
+        return "error: url must start with http:// or https://"
+      end
+      local chars = math.max(1, tonumber(args.chars) or state.opts.chars)
+      return exa("web_fetch_exa", { urls = { url }, maxCharacters = chars }, "The page has no text.", ctx.done)
     end,
   })
 end
