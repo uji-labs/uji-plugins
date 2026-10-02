@@ -1,6 +1,6 @@
 # uji-plugins
 
-Plugins for [uji](https://github.com/uji-labs/uji). Pure Lua — no Rust, no build step.
+Plugins for [uji](https://github.com/uji-labs/uji).
 
 ## Install
 
@@ -12,9 +12,7 @@ require("planmode").setup({})
 require("telescope").setup({})
 ```
 
-`uji.pack.add` clones into `~/.local/share/uji/site/` and puts the repo on the
-search path, so `require` finds each module under `lua/`. For local development
-point at a working copy instead:
+For local development, point at a working copy instead:
 
 ```lua
 uji.pack.add({ { dir = "~/Projects/uji-plugins" } })
@@ -22,14 +20,19 @@ uji.pack.add({ { dir = "~/Projects/uji-plugins" } })
 
 ## statusline
 
-Renders the footer. Ships cwd, provider/model, token count and turn count as
-segments; any plugin can add its own.
+Status lines built from segments. With no options it draws one line below the
+input with the directory, model, effort, context, tokens, cache and turns.
+`lines` lays out your own: which segments sit left, center or right, and
+whether a line is at the top, just above the input or below it. `"*"` stands
+for every segment no line names, so other plugins' segments still show.
 
 ```lua
 require("statusline").setup({
-  defaults = false,          -- skip the stock segments
-  separator = " | ",
-  priority = 10,             -- layout order; lower sits closer to the bottom
+  logo = true,               -- the uji logo while the session is empty
+  lines = {
+    { at = "above", left = { "model" }, right = { "effort" } },
+    { at = "below", left = { "cwd", "*" }, right = { "context" } },
+  },
 })
 
 uji.status.add("branch", function()
@@ -37,8 +40,9 @@ uji.status.add("branch", function()
 end, { priority = 15 })
 ```
 
+The built-in segments are `cwd`, `model`, `effort`, `context`, `tokens`,
+`cache` and `turns`; adding one with the same name after `setup` replaces it.
 A segment returning `nil` is dropped, so separators never double up.
-Re-registering a name replaces it, which keeps `/reload` idempotent.
 
 ## planmode
 
@@ -66,8 +70,7 @@ gate without the commands.
 
 ## telescope
 
-Fuzzy picker. Matching, layout and key handling are all Lua — core only
-supplies the window, `uji.input.capture` and `uji.ui.exec`.
+Fuzzy picker.
 
 | | |
 |---|---|

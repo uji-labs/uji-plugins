@@ -1,5 +1,3 @@
-local fs = require("uji.sys.fs")
-
 local M = {}
 
 local DEFAULTS = {
@@ -49,56 +47,32 @@ local function names(value)
   return #list > 0 and list or nil
 end
 
-local function load(dir, source, into)
-  for _, entry in ipairs(fs.list(dir) or {}) do
-    local file = entry.name:match("^(.+)%.md$")
-    local text = file and fs.read(dir .. "/" .. entry.name)
-    if text then
-      local fields, body = frontmatter(text)
-      local name = fields.name or file
-      if fields.description then
-        into[name] = {
-          name = name,
-          description = fields.description,
-          tools = names(fields.tools),
-          model = fields.model,
-          effort = fields.effort,
-          prompt = trim(body),
-          source = source,
-          path = dir .. "/" .. entry.name,
-        }
-      end
-    end
+local function agent(file, into)
+  local base = file.name:match("^(.+)%.md$")
+  if not base then
+    return
   end
-end
-
-local function project_dir(from)
-  local dir = from
-  while dir and dir ~= "" do
-    local candidate = dir .. "/.uji/agents"
-    local stat = fs.stat(candidate)
-    if stat and stat.type == "dir" then
-      return candidate
-    end
-    local parent = dir:match("^(.*)/[^/]*$")
-    if parent == dir then
-      break
-    end
-    dir = parent
+  local fields, body = frontmatter(file.text)
+  local name = fields.name or base
+  if fields.description then
+    into[name] = {
+      name = name,
+      description = fields.description,
+      tools = names(fields.tools),
+      model = fields.model,
+      effort = fields.effort,
+      prompt = trim(body),
+      source = file.project and "project" or "user",
+      path = file.path,
+    }
   end
 end
 
 function M.agents(scope)
   local found = {}
-  if scope ~= "project" then
-    for _, root in ipairs(uji.pack.list()) do
-      load(root .. "/agents", "user", found)
-    end
-  end
-  if scope ~= "user" then
-    local dir = project_dir(uji.session.info().directory)
-    if dir then
-      load(dir, "project", found)
+  for _, file in ipairs(uji.config.files("agents", { project = scope ~= "user" })) do
+    if file.project or scope ~= "project" then
+      agent(file, found)
     end
   end
   return found
