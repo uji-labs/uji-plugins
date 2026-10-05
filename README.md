@@ -20,34 +20,35 @@ uji.pack.add({ { dir = "~/Projects/uji-plugins" } })
 
 ## statusline
 
-Status lines built from segments. With no options it draws one line below the
-input with the directory, model, effort, context, tokens, cache and turns.
-`lines` lays out your own: which segments sit left, center or right, and
-whether a line is at the top, just above the input or below it. `"*"` stands
-for every segment no line names, so other plugins' segments still show.
+Views for status lines. `setup()` declares the default bar as a bottom bar
+toolbar item, with the directory, model, effort, context, tokens, cache and
+turns. Each segment is a view, `statusline.Bar` joins them with separators, and
+you put bars in toolbar sections with `uji.ui.toolbar`.
 
 ```lua
-require("statusline").setup({
-  logo = true,               -- the uji logo while the session is empty
-  lines = {
-    { at = "above", left = { "model" }, right = { "effort" } },
-    { at = "below", left = { "cwd", "*" }, right = { "context" } },
-  },
-})
+local ito = require("ito")
+local statusline = require("statusline")
 
-uji.status.add("branch", function()
-  return { text = branch(), color = "magenta" }
-end, { priority = 15 })
+uji.ui.toolbar({
+  ito.ToolbarItem(ito.ToolbarPlacement.keyboard, function()
+    return statusline.Bar({ statusline.Model(), ito.Spacer(), statusline.Effort() })
+  end),
+  ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
+    return statusline.Bar({ statusline.Cwd(), ito.Spacer(), statusline.Context() })
+  end),
+})
 ```
 
-The built-in segments are `cwd`, `model`, `effort`, `context`, `tokens`,
-`cache` and `turns`; adding one with the same name after `setup` replaces it.
-A segment returning `nil` is dropped, so separators never double up.
+The segments are `statusline.Cwd`, `Model`, `Effort`, `Context`, `Tokens`,
+`Cache` and `Turns`, and any view of your own goes in a bar the same way. A
+segment that draws nothing gets no separator. `statusline.Logo` shows the uji
+logo while the session is empty; a theme's screen puts it over the transcript
+with `screen.transcript():overlay(statusline.Logo())`.
 
 ## planmode
 
 Read-only exploration. Blocks edits and shell commands, tells the model why,
-shows `PLAN` in the footer.
+shows `planmode.Badge` as a bottom bar toolbar item, or in a statusline bar with `badge = false`.
 
 | | |
 |---|---|
@@ -95,6 +96,5 @@ require("telescope").setup({ keys = false })
 
 ## Requires
 
-uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.status.add`,
-`uji.context.add`, `uji.ui.exec`, and `{ priority }` on `uji.on` and
-`uji.ui.open_win`.
+uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.context.add`,
+`uji.ui.exec`, `uji.ui.toolbar`, ito, and `{ priority }` on `uji.on`.

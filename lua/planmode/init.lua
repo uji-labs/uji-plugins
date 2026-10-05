@@ -1,8 +1,10 @@
+local ito = require("ito")
+
 local M = {}
 
 local WRITE_TOOLS = { "edit_file", "write_file" }
 
-local state = { active = false, asking = false, left = false, allow = {} }
+local state = ito.observable({ active = false, asking = false, left = false, allow = {} })
 
 local READ_ONLY = {
   cat = true,
@@ -160,6 +162,10 @@ local function ask_to_accept()
   end)
 end
 
+M.Badge = ito.view(function()
+  return state.active and ito.Text("plan"):foreground(ito.theme().colors.accent)
+end)
+
 function M.setup(opts)
   opts = opts or {}
   state.allow = opts.allow or {}
@@ -171,10 +177,13 @@ function M.setup(opts)
     return { text = OFF, at = "turn" }
   end, { priority = 10 })
 
-  uji.status.add("plan", function()
-    if not state.active then return nil end
-    return { text = "plan", color = "yellow" }
-  end, { priority = 5 })
+  if M.shown then
+    M.shown:remove()
+    M.shown = nil
+  end
+  if opts.badge ~= false then
+    M.shown = uji.ui.toolbar({ ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, M.Badge) })
+  end
 
   uji.on("before_tool", function(event)
     return M.decide(event.name, event.arguments)
