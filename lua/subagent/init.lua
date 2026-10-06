@@ -11,7 +11,9 @@ local DEFAULTS = {
 
 local FLAGS = { ["config-dir"] = true, ["data-dir"] = true, db = true }
 
-local state = { opts = DEFAULTS }
+local HISTORY = 50
+
+local state = { opts = DEFAULTS, history = {} }
 
 local function merged(base, over)
   local out = {}
@@ -139,22 +141,91 @@ local function command(agent, task)
   return cmd
 end
 
-local function spawn(agent, task, cwd, progress, stops)
+local function failed(text)
+  return text:sub(1, 6) == "error:"
+end
+
+local function first_line(text)
+  return (text:match("^%s*([^\n]*)"))
+end
+
+function M.tokens(count)
+  if count >= 1000000 then
+    return string.format("%.1fM tokens", count / 1000000)
+  elseif count >= 1000 then
+    return string.format("%.1fk tokens", count / 1000)
+  end
+  return count .. " tokens"
+end
+
+local function total(usage)
+  if type(usage) ~= "table" then return 0 end
+  return (usage.input or 0) + (usage.output or 0) + (usage.cache_read or 0) + (usage.cache_write or 0)
+end
+
+local SUBJECTS = { "path", "command", "pattern", "query", "url", "agent" }
+
+local function activity(call)
+  local ok, args = pcall(uji.json.decode, call.arguments or "", { nulls = false })
+  if ok and type(args) == "table" then
+    for _, key in ipairs(SUBJECTS) do
+      if type(args[key]) == "string" and args[key] ~= "" then
+        return call.name .. " " .. first_line(args[key])
+      end
+    end
+  end
+  return call.name
+end
+
+local QUIET = { update = function() end, done = function() end, fail = function() end }
+
+-- A row under the running tool. uji without ctx.task gets progress lines instead.
+function M.row(ctx, label, opts)
+  if ctx.task then
+    return ctx.task(label, opts)
+  end
+  return {
+    update = function(_, fields)
+      if fields.line and fields.line ~= "" then ctx.progress(label .. ": " .. fields.line) end
+    end,
+    done = function() end,
+    fail = function() end,
+  }
+end
+
+local function remember(entry)
+  table.insert(state.history, 1, entry)
+  state.history[HISTORY + 1] = nil
+end
+
+-- Runs one agent on a task and waits for its answer. Returns the answer, or a
+-- string starting with "error:", and a table with `session`, `tokens`,
+-- `seconds` and `failed`. `opts.row` is a task row to keep up to date and
+-- `opts.stops` collects functions that stop the agent.
+function M.run(agent, task, opts)
+  opts = opts or {}
+  local row, stops = opts.row or QUIET, opts.stops or {}
   local finished = uji.promise()
   local output, errors = nil, {}
+  local info = { agent = agent.name, task = task, tokens = 0, started = uji.os.clock() }
+  row:update({ status = "running" })
   local job = uji.job.start({
     cmd = command(agent, task),
-    cwd = cwd or uji.session.info().directory,
+    cwd = opts.cwd or uji.session.info().directory,
     on_stdout = function(line)
-      local ok, event = pcall(uji.json.decode, line)
+      local ok, event = pcall(uji.json.decode, line, { nulls = false })
       if not ok or type(event) ~= "table" then return end
-      if event.type == "progress" then
-        progress(agent.name .. ": " .. event.tool .. " " .. event.line)
-      elseif event.type == "message" and event.message.type == "assistant" then
-        for _, call in ipairs(event.message.tool_calls or {}) do
-          progress(agent.name .. ": " .. call.name)
+      if event.type == "session" then
+        info.session = event.id
+      elseif event.type == "progress" then
+        row:update({ line = event.tool .. " " .. event.line })
+      elseif event.type == "message" and type(event.message) == "table" and event.message.type == "assistant" then
+        local calls = event.message.tool_calls or {}
+        if #calls > 0 then
+          row:update({ line = activity(calls[#calls]) })
         end
       elseif event.type == "done" then
+        info.tokens = total(event.usage)
         output = event.text or ("error: " .. tostring(event.error))
       end
     end,
@@ -162,27 +233,39 @@ local function spawn(agent, task, cwd, progress, stops)
       errors[#errors + 1] = line
     end,
     on_exit = function(code, reason)
-      local failed = "error: " .. agent.name .. " stopped (" .. (reason or ("exit code " .. code)) .. ")"
+      local stopped = "error: " .. agent.name .. " stopped (" .. (reason or ("exit code " .. code)) .. ")"
       if #errors > 0 then
-        failed = failed .. ": " .. table.concat(errors, "\n")
+        stopped = stopped .. ": " .. table.concat(errors, "\n")
       end
-      finished:resolve(output or failed)
+      finished:resolve(output or stopped)
     end,
   })
   job.close()
   stops[#stops + 1] = job.stop
-  return finished:await()
+  local text = finished:await()
+  info.seconds = math.floor(uji.os.clock() - info.started)
+  info.failed = failed(text)
+  local detail = info.tokens > 0 and M.tokens(info.tokens) or nil
+  if info.failed then
+    row:fail(detail and detail .. " · " .. first_line(text:sub(8)) or first_line(text:sub(8)))
+  else
+    row:done(detail)
+  end
+  remember({
+    agent = agent.name, task = task, session = info.session, tokens = info.tokens,
+    seconds = info.seconds, failed = info.failed,
+  })
+  return text, info
 end
+
+-- The agent a task gets when it names none: every tool, no extra prompt.
+M.GENERAL = { name = "agent", description = "a general agent", prompt = "" }
 
 local function clipped(text)
   if #text <= state.opts.output then
     return text
   end
   return text:sub(1, state.opts.output) .. "\n[cut at " .. state.opts.output .. " of " .. #text .. " bytes]"
-end
-
-local function failed(text)
-  return text:sub(1, 6) == "error:"
 end
 
 local function parallel(items, run, stops)
@@ -250,8 +333,21 @@ local function execute(args, ctx, stops)
   local missing = resolve(agents, items)
   if missing then return missing end
   if not approved(items) then return "error: you did not approve the project's agents" end
+  local finished, spent = 0, 0
+  local function summary()
+    ctx.progress(string.format("%d of %d done · %s", finished, #items, M.tokens(spent)))
+  end
+  for index, item in ipairs(items) do
+    local label = item.agent .. " · " .. first_line(item.task)
+    if mode == "chain" then label = index .. ". " .. label end
+    item.row = M.row(ctx, label, { status = "queued" })
+  end
+  summary()
   local function run(item, task)
-    return spawn(item.found, task or item.task, item.cwd, ctx.progress, stops)
+    local text, info = M.run(item.found, task or item.task, { cwd = item.cwd, row = item.row, stops = stops })
+    finished, spent = finished + 1, spent + info.tokens
+    summary()
+    return text
   end
   if mode == "single" then
     return run(items[1])
@@ -262,6 +358,7 @@ local function execute(args, ctx, stops)
       local task = item.task:gsub("{previous}", function() return previous end)
       previous = run(item, task)
       if failed(previous) then
+        for later = index + 1, #items do items[later].row:fail("skipped") end
         return "error: step " .. index .. " (" .. item.agent .. ") failed: " .. previous:sub(8)
       end
     end
@@ -305,6 +402,39 @@ local function delegate(args)
     "Run the `%s` agent with the subagent tool on this task, then tell me what it found.\n\n%s",
     name, task
   ))
+end
+
+-- Opens an agent's saved session in a nested uji, and comes back when it exits.
+function M.open(session)
+  local cmd = { uji.os.executable, "resume", "--id", session }
+  for _, arg in ipairs(inherited()) do cmd[#cmd + 1] = arg end
+  uji.ui.exec(cmd)
+end
+
+local function ago(entry)
+  local status = entry.failed and "failed" or "done"
+  local seconds = entry.seconds and (entry.seconds .. "s") or "?"
+  return string.format("%s · %s · %s · %s · %s", entry.agent, status, seconds, M.tokens(entry.tokens or 0),
+    first_line(entry.task))
+end
+
+local function browse()
+  if #state.history == 0 then
+    uji.notify("no agents have run yet")
+    return
+  end
+  local items, chosen = {}, {}
+  for index, entry in ipairs(state.history) do
+    items[index] = ago(entry)
+    chosen[items[index]] = entry
+  end
+  local choice = uji.ui.select({ title = "Agents that ran · enter opens the session", items = items })
+  local entry = choice and chosen[choice]
+  if entry and entry.session then
+    M.open(entry.session)
+  elseif entry then
+    uji.notify("that agent left no session")
+  end
 end
 
 local TASK = {
@@ -380,6 +510,13 @@ function M.setup(opts)
   uji.command.add("agent", {
     desc = "run an agent on a task: /agent <name> <task>",
     handler = delegate,
+  })
+
+  uji.command.add("subagents", {
+    desc = "list the agents that ran and open one's session",
+    handler = function()
+      uji.task.spawn(browse)
+    end,
   })
 end
 
