@@ -3,6 +3,7 @@ local ito = require("ito")
 return require("uji.themes.default")({
   name = "nord",
   colors = {
+    background = ito.rgb(0x2e3440),
     text = ito.rgb(0xd8dee9),
     muted = ito.rgb(0x7b88a1),
     code = ito.rgb(0xa3be8c),
@@ -16,13 +17,4 @@ return require("uji.themes.default")({
     number = ito.rgb(0xb48ead),
     comment = ito.rgb(0x616e88),
   },
-  styles = function(c)
-    local S = ito.TextStyle
-    return {
-      link = S({ foreground = c.link, underline = true }),
-      code_keyword = S({ foreground = c.keyword }),
-      code_number = S({ foreground = c.number }),
-      code_comment = S({ foreground = c.comment, italic = true }),
-    }
-  end,
 })

@@ -11,9 +11,27 @@ local function railed(width, value)
   return rows
 end
 
+local function screen(slots)
+  local placement = ito.ToolbarPlacement
+  return ito.VStack({
+    ito.HStack({
+      ito.ToolbarItems(placement.top_bar_leading, ito.HStack),
+      ito.Spacer(),
+      ito.ToolbarItems(placement.top_bar_trailing, ito.HStack),
+    }),
+    slots.transcript():grow(),
+    slots.activity():padding({ vertical = 1 }),
+    slots.modals(),
+    ito.ToolbarItems(placement.keyboard),
+    slots.composer(),
+    ito.ToolbarItems(placement.bottom_bar),
+  })
+end
+
 return require("uji.themes.default")({
   name = "fx",
   colors = {
+    background = C(16),
     text = C(252),
     muted = C(245),
     code = C(250),
@@ -22,17 +40,18 @@ return require("uji.themes.default")({
     error = ito.rgb(0xe5484d),
     notice = C(252),
     link = C(75),
+    keyword = C(252),
   },
   styles = function(c)
     local S = ito.TextStyle
     return {
       user = S({ foreground = c.text, bold = true }),
       link = S({ foreground = c.link }),
-      code_keyword = S({ foreground = c.text }),
     }
   end,
-  symbols = { tool = "●", pointer = "❯", prompt = "❯" },
+  symbols = { tool = "●", pointer = "❯", prompt = "❯", input = "┃ " },
   views = {
+    [uji.ui.Screen] = screen,
     [uji.ui.UserMessage] = function(props)
       return ito.Lines(railed, { ctx = ito.theme(), text = props.message.text or "" })
     end,

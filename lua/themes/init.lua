@@ -1,21 +1,16 @@
 local M = {}
 
-local function themes(current)
-  local names = {}
-  for _, module in ipairs(uji.modules("uji.themes")) do
-    local name = module:match("[^.]+$")
-    if name == current then
-      table.insert(names, 1, name)
-    else
-      names[#names + 1] = name
-    end
+local function names()
+  local found = {}
+  for index, module in ipairs(uji.modules("uji.themes")) do
+    found[index] = module:match("[^.]+$")
   end
-  return names
+  return found
 end
 
-local function exists(name)
-  for _, module in ipairs(uji.modules("uji.themes")) do
-    if module == "uji.themes." .. name then
+local function exists(wanted)
+  for _, name in ipairs(names()) do
+    if name == wanted then
       return true
     end
   end
@@ -34,7 +29,7 @@ end
 
 local function pick()
   local before = uji.ui.theme()
-  uji.ui.pick({ title = "Themes", items = themes(before), preview = preview }, function(name)
+  uji.ui.pick({ title = "Themes", items = names(), current = before, preview = preview }, function(name)
     if name then
       use(name)
     else

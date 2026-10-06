@@ -3,6 +3,7 @@ local ito = require("ito")
 return require("uji.themes.default")({
   name = "catppuccin_mocha",
   colors = {
+    background = ito.rgb(0x1e1e2e),
     text = ito.rgb(0xcdd6f4),
     muted = ito.rgb(0x7f849c),
     code = ito.rgb(0xa6e3a1),
@@ -16,12 +17,4 @@ return require("uji.themes.default")({
     number = ito.rgb(0xfab387),
     comment = ito.rgb(0x9399b2),
   },
-  styles = function(c)
-    local S = ito.TextStyle
-    return {
-      link = S({ foreground = c.link, underline = true }),
-      code_number = S({ foreground = c.number }),
-      code_comment = S({ foreground = c.comment, italic = true }),
-    }
-  end,
 })

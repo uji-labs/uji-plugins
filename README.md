@@ -116,12 +116,14 @@ The themes are files in `lua/uji/themes`, so any of them works by name without
 uji.ui.configure({ theme = "tokyo_night" })
 ```
 
-The themes keep your terminal's background. Adding the pack makes uji restart
-once, the first time, to load them.
+Each theme paints its own background. A terminal draws painted cells fully
+opaque unless it applies its opacity to them too, which Ghostty does with
+`background-opacity-cells = true`. Adding the pack makes uji restart once, the
+first time, to load the themes.
 
 | | |
 |---|---|
-| `/theme` | lists every theme, yours and uji's too, with the one in use first |
+| `/theme` | lists every theme, yours and uji's too, opening on the one in use |
 | `/theme <name>` | switches to a theme and keeps it |
 
 In the list, each theme you move to shows on the whole screen at once. Enter

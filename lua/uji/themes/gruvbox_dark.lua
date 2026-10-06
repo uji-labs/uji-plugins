@@ -3,6 +3,7 @@ local ito = require("ito")
 return require("uji.themes.default")({
   name = "gruvbox_dark",
   colors = {
+    background = ito.rgb(0x282828),
     text = ito.rgb(0xebdbb2),
     muted = ito.rgb(0xa89984),
     code = ito.rgb(0xb8bb26),
@@ -16,13 +17,4 @@ return require("uji.themes.default")({
     number = ito.rgb(0xd3869b),
     comment = ito.rgb(0x928374),
   },
-  styles = function(c)
-    local S = ito.TextStyle
-    return {
-      link = S({ foreground = c.link, underline = true }),
-      code_keyword = S({ foreground = c.keyword }),
-      code_number = S({ foreground = c.number }),
-      code_comment = S({ foreground = c.comment, italic = true }),
-    }
-  end,
 })
