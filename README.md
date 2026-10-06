@@ -11,6 +11,7 @@ require("statusline").setup({})
 require("planmode").setup({})
 require("telescope").setup({})
 require("themes").setup({})
+require("claude_code").setup({})
 ```
 
 For local development, point at a working copy instead:
@@ -139,3 +140,19 @@ require("themes").setup({ keys = "<C-t>" })
 uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.context.add`,
 `uji.ui.exec`, `uji.ui.toolbar`, `uji.ui.theme`, `uji.ui.save_theme`, ito,
 and `{ priority }` on `uji.on`.
+
+## claude_code
+
+A `claude-code` provider that runs the `claude` command and shows its work in
+uji: Claude Code's own sign-in, tools, `CLAUDE.md` and MCP servers, with uji's
+transcript, approval, interrupt and resume. It talks to `claude` the way the
+Claude Agent SDK does, over `--input-format stream-json`, one process per
+session. Needs `claude` on your `PATH`, signed in.
+
+```lua
+require("claude_code").setup({
+  command = { "claude" },
+  permission_mode = "default",
+  models = { "claude-opus-5-5", "claude-haiku-4-5-20251001" },
+})
+```
