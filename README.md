@@ -10,6 +10,7 @@ uji.pack.add({ "uji-labs/uji-plugins" })
 require("statusline").setup({})
 require("planmode").setup({})
 require("telescope").setup({})
+require("themes").setup({})
 ```
 
 For local development, point at a working copy instead:
@@ -94,7 +95,47 @@ reusable; `telescope.picker.open(title, items, on_choice)` is the picker.
 require("telescope").setup({ keys = false })
 ```
 
+## themes
+
+Six themes and a picker for them.
+
+| Theme | Look |
+|---|---|
+| `fx` | grey text, bold white headings and a `┃` rail beside your messages |
+| `tokyo_night` | Tokyo Night (night) |
+| `catppuccin_mocha` | Catppuccin Mocha |
+| `gruvbox_dark` | Gruvbox dark |
+| `nord` | Nord |
+| `high_contrast` | white text, yellow accents, black on yellow selections, no dim or italic text |
+
+The themes are files in `lua/uji/themes`, so any of them works by name without
+`setup`:
+
+```lua
+uji.ui.configure({ theme = "tokyo_night" })
+```
+
+The themes keep your terminal's background. Adding the pack makes uji restart
+once, the first time, to load them.
+
+| | |
+|---|---|
+| `/theme` | lists every theme, yours and uji's too, with the one in use first |
+| `/theme <name>` | switches to a theme and keeps it |
+
+In the list, each theme you move to shows on the whole screen at once. Enter
+keeps it, and esc puts back the theme you had. A kept theme is on the next time
+uji starts, unless your config sets a theme with `uji.ui.configure`, which
+wins.
+
+`setup` binds no key. Pass one to bind it:
+
+```lua
+require("themes").setup({ keys = "<C-t>" })
+```
+
 ## Requires
 
 uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.context.add`,
-`uji.ui.exec`, `uji.ui.toolbar`, ito, and `{ priority }` on `uji.on`.
+`uji.ui.exec`, `uji.ui.toolbar`, `uji.ui.theme`, `uji.ui.save_theme`, ito,
+and `{ priority }` on `uji.on`.
