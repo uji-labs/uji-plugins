@@ -9,6 +9,7 @@
 -- the real confinement is in core, and this sits on top of it.
 --
 --   require("readonly").setup({ "~/reference/codex", "~/other-project" })
+--   require("readonly").setup({ paths = { "~/reference/codex" }, priority = 20 })
 
 local M = {}
 
@@ -61,7 +62,12 @@ function M.roots()
   return roots
 end
 
+-- Also takes one table, setup({ paths = { ... }, priority = 20 }), which is
+-- what uji's Nix module writes.
 function M.setup(paths, opts)
+  if opts == nil and type(paths) == "table" and paths[1] == nil then
+    opts, paths = paths, paths.paths
+  end
   opts = opts or {}
   roots = {}
   for _, path in ipairs(paths or {}) do
