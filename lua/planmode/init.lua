@@ -211,18 +211,6 @@ function M.setup(opts)
     end
   end)
 
-  uji.command.add("approve", function()
-    if not state.active then
-      uji.notify("not in plan mode")
-      return
-    end
-    if not last_plan() then
-      uji.notify("no plan to approve yet")
-      return
-    end
-    M.approve()
-  end)
-
   if opts.keys ~= false then
     uji.keymap.add("normal", "<C-b>", { command = "plan" })
   end

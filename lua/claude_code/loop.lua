@@ -98,7 +98,8 @@ return function(opts)
     end
     self:flush()
     local input = type(request.input) == "table" and request.input or {}
-    local decision = self.agent:approve(tostring(request.tool_name), input)
+    local subject = input.command or input.file_path
+    local decision = self.agent:approve(tostring(request.tool_name), input, subject)
     if decision.deny then
       if request.tool_use_id then
         self.denied[request.tool_use_id] = decision.deny

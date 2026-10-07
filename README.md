@@ -56,7 +56,6 @@ shows `planmode.Badge` as a bottom bar toolbar item, or in a statusline bar with
 |---|---|
 | `/plan` or `<C-b>` | toggle |
 | `/plan <task>` | toggle on and submit the task as plan-only |
-| `/approve` | leave plan mode and execute the plan just given |
 
 `read_file` and read-only commands such as `rg`, `ls` and `git log` stay
 allowed. `edit_file` and `write_file` are disabled, and any other command asks
