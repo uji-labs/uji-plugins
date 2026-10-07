@@ -40,7 +40,23 @@ return require("uji.themes.default")({
     error = ito.rgb(0xe5484d),
     notice = C(252),
     link = C(75),
-    keyword = C(252),
+    syntax = {
+      keyword = C(252),
+      string = C(250),
+      number = C(250),
+      comment = C(245),
+      func = C(255),
+      type = C(252),
+      constant = C(250),
+    },
+    diff = {
+      added = C(77),
+      removed = C(167),
+      added_bg = C(22),
+      removed_bg = C(52),
+      added_word_bg = C(28),
+      removed_word_bg = C(88),
+    },
   },
   styles = function(c)
     local S = ito.TextStyle

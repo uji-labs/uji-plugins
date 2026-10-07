@@ -4,6 +4,7 @@
 --
 --   require("claude_code").setup({})
 
+local files = require("claude_code.files")
 local wire = require("claude_code.wire")
 
 local M = {}
@@ -88,6 +89,7 @@ function M.setup(opts)
     base_url = "",
     models = models,
   })
+  files.register()
 end
 
 return M

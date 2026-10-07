@@ -2,6 +2,7 @@
 -- own tools; this loop sends the prompt, mirrors what comes back into the
 -- uji session, and answers permission requests through uji's approval.
 
+local files = require("claude_code.files")
 local process = require("claude_code.process")
 local wire = require("claude_code.wire")
 
@@ -86,7 +87,12 @@ return function(opts)
         elseif result.failed then
           content = "error: " .. content
         end
-        self.agent:tool_result(call, self.agent:after_tool(call.name, content))
+        local shown = files.shown(result.raw)
+        self.agent:tool_result(call, {
+          text = self.agent:after_tool(call.name, content),
+          diff = shown.diff,
+          summary = shown.summary,
+        })
       end
     end
   end

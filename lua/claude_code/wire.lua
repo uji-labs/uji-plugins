@@ -153,6 +153,9 @@ function M.results(frame)
       out[#out + 1] = { id = block.tool_use_id, content = flatten(block.content), failed = block.is_error == true }
     end
   end
+  if #out == 1 then
+    out[1].raw = frame.tool_use_result
+  end
   return out
 end
 
