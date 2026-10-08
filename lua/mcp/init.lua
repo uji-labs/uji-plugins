@@ -2,33 +2,20 @@ local client = require("mcp.client")
 
 local M = { servers = {} }
 
-local function data_dir()
-  local override = os.getenv("UJI_DATA_DIR")
-  if override and override ~= "" then return override end
-  return (os.getenv("HOME") or ".") .. "/.local/share/uji"
-end
-
-local function store_path() return data_dir() .. "/mcp.json" end
+local STORE = "mcp.json"
 
 local function read_store()
-  local handle = io.open(store_path(), "r")
-  if not handle then return {} end
-  local text = handle:read("*a")
-  handle:close()
+  local text = uji.data.read(STORE)
+  if not text then return {} end
   local ok, parsed = pcall(uji.json.decode, text)
   return (ok and type(parsed) == "table" and parsed) or {}
 end
 
 local function write_store(entries)
-  os.execute(string.format("mkdir -p %q", data_dir()))
-  local handle = io.open(store_path(), "w")
-  if not handle then
-    uji.notify("mcp: could not write " .. store_path())
-    return
+  local written, err = uji.data.write(STORE, uji.json.encode(entries))
+  if not written then
+    uji.notify("mcp: could not write " .. STORE .. ": " .. tostring(err))
   end
-  handle:write(uji.json.encode(entries))
-  handle:close()
-  os.execute(string.format("chmod 600 %q", store_path()))
 end
 
 local PROTOCOL = "2024-11-05"

@@ -3,21 +3,11 @@ local M = {}
 local state = { roots = {}, found = {}, commands = {}, pending = nil }
 
 local ESCAPES = { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;", ["'"] = "&apos;" }
-
-local function home(path)
-  return (path:gsub("^~", os.getenv("HOME") or "~"))
-end
+local FILE = "SKILL.md"
+local DEPTHS = { "/" .. FILE, "/*/" .. FILE, "/*/*/" .. FILE }
 
 local function escape(text)
   return (tostring(text):gsub("[&<>\"']", ESCAPES))
-end
-
-local function slurp(path)
-  local handle = io.open(path, "r")
-  if not handle then return nil end
-  local text = handle:read("*a")
-  handle:close()
-  return text
 end
 
 local function declared(text)
@@ -39,21 +29,19 @@ function M.discover()
   state.found = {}
   local seen = {}
   for _, root in ipairs(state.roots) do
-    local handle = io.popen(string.format("find %q -maxdepth 3 -name SKILL.md 2>/dev/null", home(root)))
-    if handle then
-      for path in handle:lines() do
-        local name, description = declared(slurp(path))
+    for _, depth in ipairs(DEPTHS) do
+      for _, path in ipairs(uji.fs.glob(root .. depth) or {}) do
+        local name, description = declared(uji.fs.read(path))
         if name and not seen[name] then
           seen[name] = true
           state.found[#state.found + 1] = {
             name = name,
             description = description,
             path = path,
-            dir = path:gsub("/SKILL%.md$", ""),
+            dir = path:sub(1, -#FILE - 2),
           }
         end
       end
-      handle:close()
     end
   end
   table.sort(state.found, function(a, b) return a.name < b.name end)
@@ -88,7 +76,7 @@ end
 local function invoked()
   local skill = state.pending
   state.pending = nil
-  local text = skill and slurp(skill.path)
+  local text = skill and uji.fs.read(skill.path)
   if not text then return nil end
   return {
     at = "turn",
@@ -97,20 +85,6 @@ local function invoked()
       escape(skill.name), escape(skill.path), skill.dir, body(text)
     ),
   }
-end
-
-local function reachable()
-  local roots = uji.tool.roots()
-  local present = {}
-  for _, root in ipairs(roots) do present[home(root)] = true end
-  for _, root in ipairs(state.roots) do
-    local dir = home(root)
-    if dir:sub(1, 1) == "/" and not present[dir] then
-      present[dir] = true
-      roots[#roots + 1] = dir
-    end
-  end
-  uji.tool.roots(roots)
 end
 
 local function register()
@@ -139,7 +113,6 @@ function M.setup(opts)
     ".agents/skills",
   }
   M.discover()
-  reachable()
   register()
 
   uji.context.add("skills", announce, { priority = 20 })

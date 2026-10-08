@@ -102,10 +102,7 @@ in
 
         readonly = mkPlugin {
           description = "readonly";
-          settings = {
-            paths = mkSetting (types.listOf types.str) [ ] "Directories the model can read but not change.";
-            priority = mkSetting types.int 20 "The priority of its `before_tool` hook.";
-          };
+          settings.paths = mkSetting (types.listOf types.str) [ ] "Directories the model can read but not change.";
         };
 
         themes = mkPlugin {

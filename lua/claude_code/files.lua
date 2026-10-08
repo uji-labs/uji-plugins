@@ -27,10 +27,11 @@ end
 local function relative(args)
   local path = type(args.file_path) == "string" and args.file_path or nil
   local directory = uji.session.info().directory
-  if path and directory and path:sub(1, #directory + 1) == directory .. "/" then
-    return path:sub(#directory + 2)
+  if not path or directory == "" or path:sub(1, #directory) ~= directory then
+    return path
   end
-  return path
+  local rest = path:sub(#directory + 2)
+  return rest ~= "" and uji.fs.join(directory, rest) == path and rest or path
 end
 
 local function edited(args)
@@ -49,10 +50,16 @@ local function written(args)
 end
 
 function M.register()
-  uji.tool.display("Edit", { verb = "Edited", subject = relative, preview = edited })
-  uji.tool.display("MultiEdit", { verb = "Edited", subject = relative })
-  uji.tool.display("Write", { verb = "Wrote", subject = relative, preview = written })
-  uji.tool.display("Read", { verb = "Read", subject = relative })
+  uji.tool.display("Edit", { label = "Update", subject = relative, preview = edited })
+  uji.tool.display("MultiEdit", { label = "Update", subject = relative })
+  uji.tool.display("Write", { label = "Write", subject = relative, preview = written })
+  uji.tool.display("Read", { label = "Read", subject = relative })
+  uji.tool.display("Bash", {
+    label = "Bash",
+    subject = function(args)
+      return type(args.command) == "string" and args.command or nil
+    end,
+  })
 end
 
 function M.shown(raw)

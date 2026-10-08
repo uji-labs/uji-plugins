@@ -363,7 +363,7 @@ function M.setup(opts)
       return table.concat(agents, args.chain and " > " or ", ")
     end,
     policy = state.opts.policy,
-    display = { verb = "Ran", question = "Would you like to run these agents?" },
+    display = { label = "Agent", question = "Would you like to run these agents?" },
     run = function(args, ctx)
       local stops = {}
       local worker = uji.task.spawn(function()

@@ -14,41 +14,18 @@ local TAKEN = "is already in use"
 
 local live = {}
 
-local function home()
-  return os.getenv("CLAUDE_CONFIG_DIR") or ((os.getenv("HOME") or "") .. "/.claude")
+local function projects()
+  local custom = os.getenv("CLAUDE_CONFIG_DIR")
+  if custom and custom ~= "" then
+    return uji.fs.join(custom, "projects")
+  end
+  return uji.fs.join("~", ".claude", "projects")
 end
 
-local function exists(path)
-  local file = io.open(path, "rb")
-  if file then
-    file:close()
-    return true
-  end
-  return false
-end
-
--- Claude Code keeps one transcript per session under projects/<dir>/<id>.jsonl,
--- with <dir> the working directory with everything but letters and digits
--- turned into dashes. When that guess misses (a resolved symlink, a very long
--- path), the project folders are scanned instead.
-local function remembered(id, directory)
-  local projects = home() .. "/projects"
-  local encoded = directory:gsub("[^%w]", "-")
-  if exists(projects .. "/" .. encoded .. "/" .. id .. ".jsonl") then
-    return true
-  end
-  local listing = io.popen("ls -1 '" .. projects:gsub("'", "'\\''") .. "' 2>/dev/null")
-  if not listing then
-    return false
-  end
-  for name in listing:lines() do
-    if exists(projects .. "/" .. name .. "/" .. id .. ".jsonl") then
-      listing:close()
-      return true
-    end
-  end
-  listing:close()
-  return false
+-- Claude Code keeps one transcript per session under projects/<dir>/<id>.jsonl.
+local function remembered(id)
+  local found = uji.fs.glob(uji.fs.join(projects(), "*", id .. ".jsonl"))
+  return found ~= nil and #found > 0
 end
 
 local Process = uji.class()
@@ -181,7 +158,7 @@ function M.acquire(session, opts)
     current:close()
   end
   if opts.fresh == nil then
-    opts.fresh = not remembered(session.id, session.directory)
+    opts.fresh = not remembered(session.id)
   end
   local started = Process(session, opts)
   live[session.id] = started

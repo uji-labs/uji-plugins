@@ -2,13 +2,12 @@ local ito = require("ito")
 
 local C = ito.Color.indexed
 
-local function railed(width, value)
-  local ctx = value.ctx
-  local rows = {}
-  for index, chunk in ipairs(ctx:chunks(value.text, math.max(width - 2, 1))) do
-    rows[index] = { { "┃ ", ctx.styles.highlight }, { chunk, ctx.styles.user } }
-  end
-  return rows
+local function railed(text)
+  local ctx = ito.theme()
+  return ito.HStack({
+    ito.Text("┃"):style(ctx.styles.highlight):padding({ trailing = 1 }):repeating(),
+    ito.Text(text):style(ctx.styles.user):wrap():grow(),
+  })
 end
 
 local function screen(slots)
@@ -69,7 +68,7 @@ return require("uji.themes.default")({
   views = {
     [uji.ui.Screen] = screen,
     [uji.ui.UserMessage] = function(props)
-      return ito.Lines(railed, { ctx = ito.theme(), text = props.message.text or "" })
+      return railed(props.message.text or "")
     end,
   },
 })

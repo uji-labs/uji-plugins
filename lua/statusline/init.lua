@@ -29,16 +29,8 @@ local function compact(n)
   return (string.format("%.1f", value):gsub("%.0$", "")) .. unit
 end
 
-local function shorten(path)
-  local home = os.getenv("HOME")
-  if home and home ~= "" and path:sub(1, #home) == home then
-    return "~" .. path:sub(#home + 1)
-  end
-  return path
-end
-
 M.Cwd = ito.view(function()
-  local dir = shorten(uji.session.info().directory or "")
+  local dir = uji.session.info().short_directory
   return dir ~= "" and ito.Text(dir):foreground(ito.theme().colors.accent)
 end)
 

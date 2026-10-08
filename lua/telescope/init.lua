@@ -10,13 +10,20 @@ local function editor()
     or os.getenv("EDITOR")
 end
 
+local function quoted(path)
+  if uji.os.platform == "windows" then
+    return '"' .. path .. '"'
+  end
+  return "'" .. (path:gsub("'", "'\\''")) .. "'"
+end
+
 function M.open(path)
   local cmd = editor()
   if not cmd or cmd == "" then
     uji.notify("no editor: set $EDITOR, or pass editor = \"nvim\" to telescope.setup")
     return
   end
-  uji.ui.exec({ "sh", "-c", cmd .. ' "$1"', "sh", path })
+  uji.ui.exec(cmd .. " " .. quoted(path))
 end
 
 local function attach(path)
@@ -25,29 +32,57 @@ local function attach(path)
   uji.input.set(current .. sep .. "@" .. path .. " ")
 end
 
-local FIND = "rg --files --hidden --glob '!.git' 2>/dev/null"
-  .. " || find . -type f -not -path '*/.git/*'"
+local LISTERS = {
+  { "rg", "--files", "--hidden", "--glob", "!.git", "." },
+  { "git", "ls-files", "--cached", "--others", "--exclude-standard" },
+  { "find", ".", "-type", "f", "-not", "-path", "*/.git/*", unix = true },
+}
 
-local function collect(cmd, on_done)
-  local lines = {}
-  uji.job.start({
+local function searched(pattern)
+  return { "rg", "--line-number", "--no-heading", "--smart-case", "-e", pattern, "." }
+end
+
+local function collect(cmd, limit, on_done)
+  local lines, job = {}, nil
+  job = uji.job.start({
     cmd = cmd,
-    on_stdout = function(line) lines[#lines + 1] = line end,
-    on_exit = function() on_done(lines) end,
+    on_stdout = function(line)
+      if limit and #lines >= limit then return end
+      lines[#lines + 1] = (line:gsub("^%.[/\\]", ""))
+      if limit and #lines >= limit then job.stop() end
+    end,
+    on_exit = function(code) on_done(lines, code) end,
   })
+  job.close()
+end
+
+local function listed(index, on_done)
+  local cmd = LISTERS[index]
+  if not cmd then
+    on_done({})
+  elseif cmd.unix and uji.os.platform == "windows" then
+    listed(index + 1, on_done)
+  else
+    collect(cmd, nil, function(files, code)
+      if #files == 0 and code ~= 0 then
+        listed(index + 1, on_done)
+      else
+        on_done(files)
+      end
+    end)
+  end
 end
 
 function M.files(on_done)
-  collect(FIND, on_done)
+  listed(1, on_done)
 end
 
 function M.grep(pattern, on_done)
-  local escaped = pattern:gsub("'", "'\\''")
-  collect("rg --line-number --no-heading --smart-case '" .. escaped .. "' < /dev/null | head -500", on_done)
+  collect(searched(pattern), 500, on_done)
 end
 
 function M.branches(on_done)
-  collect("git branch --all --format='%(refname:short)'", on_done)
+  collect({ "git", "branch", "--all", "--format=%(refname:short)" }, nil, on_done)
 end
 
 local function pick(title, items, on_choice, preview)
@@ -70,13 +105,7 @@ local function live_grep()
         show({})
         return
       end
-      local escaped = query:gsub("'", "'\\''")
-      local hits = {}
-      uji.job.start({
-        cmd = "rg --line-number --no-heading --smart-case '" .. escaped .. "' < /dev/null | head -200",
-        on_stdout = function(line) hits[#hits + 1] = line end,
-        on_exit = function() show(hits) end,
-      })
+      collect(searched(query), 200, show)
     end,
   }, function(choice)
     if choice then M.open(choice:match("^([^:]+):") or choice) end

@@ -47,24 +47,11 @@ local function form(url, fields, done)
     }, done)
 end
 
-local function shell(command)
-    local handle = io.popen(command)
-    if not handle then return nil end
-    local out = handle:read("*a")
-    handle:close()
-    return (out:gsub("%s+$", ""))
-end
+local URL_SAFE = { url = true, pad = false }
 
--- Lua has no crypto. openssl is present everywhere uji runs, and the verifier
--- never leaves this process.
 local function pkce()
-    local verifier = shell("openssl rand -base64 60 | tr -d '=+/\\n' | cut -c1-64")
-    if not verifier or verifier == "" then return nil end
-    local challenge = shell(string.format(
-        "printf %%s %q | openssl dgst -sha256 -binary | openssl base64 | tr '+/' '-_' | tr -d '=\\n'",
-        verifier))
-    if not challenge or challenge == "" then return nil end
-    return verifier, challenge
+    local verifier = uji.base64.encode(uji.random(48), URL_SAFE)
+    return verifier, uji.base64.encode(uji.sha256(verifier), URL_SAFE)
 end
 
 local function metadata_url(challenge, url)
@@ -127,16 +114,12 @@ end
 
 function M.authorize(name, server, client, done)
     local verifier, challenge = pkce()
-    if not verifier then
-        done(nil, "could not generate a PKCE challenge (is openssl installed?)")
-        return
-    end
     local target = string.format(
         "%s?response_type=code&client_id=%s&redirect_uri=%s&code_challenge=%s&code_challenge_method=S256",
         server.authorization_endpoint, client.client_id, REDIRECT, challenge)
 
     uji.notify(name .. ": opening your browser to sign in")
-    uji.ui.exec({ "sh", "-c", 'if command -v xdg-open >/dev/null; then xdg-open "$1"; else open "$1"; fi', "sh", target })
+    uji.ui.open(target)
     uji.ui.prompt({
         title = "Paste the URL your browser was redirected to",
     }, function(pasted)
