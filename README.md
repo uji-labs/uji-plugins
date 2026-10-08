@@ -97,11 +97,12 @@ require("telescope").setup({ keys = false })
 
 ## themes
 
-Six themes and a picker for them.
+Seven themes and a picker for them.
 
 | Theme | Look |
 |---|---|
 | `fx` | grey text, bold white headings and a `┃` rail beside your messages |
+| `opencode` | opencode |
 | `tokyo_night` | Tokyo Night (night) |
 | `catppuccin_mocha` | Catppuccin Mocha |
 | `gruvbox_dark` | Gruvbox dark |
