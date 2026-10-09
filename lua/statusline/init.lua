@@ -17,6 +17,10 @@ local function muted(text)
   return ito.Text(text):foreground(ito.theme().colors.muted)
 end
 
+local function bold(text, colour)
+  return ito.Text(text):foreground(colour):bold()
+end
+
 local function compact(n)
   local value, unit = n, ""
   if n >= 1000000 then
@@ -31,25 +35,25 @@ end
 
 M.Cwd = ito.view(function()
   local dir = uji.session.info().short_directory
-  return dir ~= "" and ito.Text(dir):foreground(ito.theme().colors.accent)
+  return dir ~= "" and bold(dir, ito.theme().colors.accent)
 end)
 
 M.Model = ito.view(function()
   local current = uji.model.current()
-  return current.name ~= nil and muted(current.name .. "/" .. current.model)
+  return current.name ~= nil and bold(current.model, ito.theme().colors.text)
 end)
 
 M.Effort = ito.view(function()
   local effort = uji.model.current().effort
-  return effort ~= nil and effort ~= "off" and muted("think " .. effort)
+  return effort ~= nil and effort ~= "off" and bold(effort .. " effort", ito.theme().colors.syntax.constant)
 end)
 
 M.Context = ito.view(function()
   local ctx = uji.session.context()
   if not ctx.window or ctx.window == 0 then return false end
   local pct = math.floor(ctx.used / ctx.window * 100 + 0.5)
-  local text = string.format("%s/%s ctx (%d%%)", compact(ctx.used), compact(ctx.window), pct)
-  return pct >= CROWDED and ito.Text(text):foreground(ito.theme().colors.notice) or muted(text)
+  local colors = ito.theme().colors
+  return bold(string.format("context %d%%", pct), pct >= CROWDED and colors.notice or colors.syntax.string)
 end)
 
 M.Tokens = ito.view(function()
@@ -88,7 +92,7 @@ M.Bar = ito.view(function(props)
 end)
 
 M.Default = ito.view(function()
-  return M.Bar({ M.Cwd(), M.Model(), M.Effort(), M.Context(), M.Tokens(), M.Cache(), M.Turns() })
+  return M.Bar({ M.Cwd(), M.Model(), M.Effort(), ito.Spacer(), M.Context() })
 end)
 
 M.Logo = ito.view(function()

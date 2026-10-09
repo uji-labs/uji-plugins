@@ -23,8 +23,8 @@ uji.pack.add({ { dir = "~/Projects/uji-plugins" } })
 ## statusline
 
 Views for status lines. `setup()` declares the default bar as a bottom bar
-toolbar item, with the directory, model, effort, context, tokens, cache and
-turns. Each segment is a view, `statusline.Bar` joins them with separators, and
+toolbar item, with the directory, model and effort on the left and how full the
+context is on the right. Each segment is a view, `statusline.Bar` joins them with separators, and
 you put bars in toolbar sections with `uji.ui.toolbar`.
 
 ```lua
