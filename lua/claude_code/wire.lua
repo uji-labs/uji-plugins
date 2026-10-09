@@ -173,6 +173,15 @@ function M.failure(frame)
   return tostring(frame.subtype or "failed")
 end
 
+function M.window(frame, model)
+  local usage = type(frame.modelUsage) == "table" and frame.modelUsage or {}
+  for id, used in pairs(usage) do
+    if type(id) == "string" and id:sub(1, #model) == model and type(used) == "table" then
+      return tonumber(used.contextWindow)
+    end
+  end
+end
+
 function M.failed(frame)
   return frame.is_error == true or (frame.subtype ~= nil and frame.subtype ~= "success")
 end

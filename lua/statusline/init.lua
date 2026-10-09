@@ -35,12 +35,12 @@ end
 
 M.Cwd = ito.view(function()
   local dir = uji.session.info().short_directory
-  return dir ~= "" and bold(dir, ito.theme().colors.accent)
+  return dir ~= "" and bold(dir, ito.theme().colors.syntax.keyword)
 end)
 
 M.Model = ito.view(function()
   local current = uji.model.current()
-  return current.name ~= nil and bold(current.model, ito.theme().colors.text)
+  return current.name ~= nil and bold(current.model, ito.theme().colors.syntax.func)
 end)
 
 M.Effort = ito.view(function()
@@ -83,7 +83,7 @@ M.Bar = ito.view(function(props)
     for index, subview in ipairs(subviews) do
       local before = subviews[index - 1]
       if before and not before.weight and not subview.weight then
-        row[#row + 1] = muted(props.separator or SEPARATOR):dim()
+        row[#row + 1] = muted(props.separator or SEPARATOR)
       end
       row[#row + 1] = subview
     end
@@ -92,7 +92,7 @@ M.Bar = ito.view(function(props)
 end)
 
 M.Default = ito.view(function()
-  return M.Bar({ M.Cwd(), M.Model(), M.Effort(), ito.Spacer(), M.Context() })
+  return M.Bar({ M.Cwd(), M.Model(), M.Effort(), M.Context() })
 end)
 
 M.Logo = ito.view(function()

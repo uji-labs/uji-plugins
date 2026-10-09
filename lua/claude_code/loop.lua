@@ -8,7 +8,7 @@ local wire = require("claude_code.wire")
 
 local KIND = { text_delta = "text", thinking_delta = "reasoning" }
 
-return function(opts)
+return function(opts, measured)
   local Loop = uji.class()
 
   function Loop:init(agent, turn)
@@ -119,6 +119,10 @@ return function(opts)
     if wire.failed(frame) then
       self:flush()
       return self.agent:failed("claude code: " .. wire.failure(frame))
+    end
+    local window = self.model and wire.window(frame, self.model)
+    if window then
+      measured(self.model, window)
     end
     local last = self.pending
     if last and #last.tool_calls == 0 then

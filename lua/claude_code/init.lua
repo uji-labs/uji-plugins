@@ -75,18 +75,26 @@ function Api:stream(request)
   return { text = answer.result or "", usage = wire.usage(answer.usage) }
 end
 
+local function model(id, context)
+  return { id = id, reasoning = true, efforts = EFFORTS, context = context }
+end
+
 function M.setup(opts)
   opts = opts or {}
+  local provider = opts.id or "claude-code"
   local models = {}
   for index, id in ipairs(opts.models or MODELS) do
-    models[index] = { id = id, reasoning = true, efforts = EFFORTS }
+    models[index] = model(id)
   end
   uji.provider.add({
-    id = opts.id or "claude-code",
+    id = provider,
     name = opts.name or "Claude Code",
     api = Api(opts),
-    loop = require("claude_code.loop")(opts),
+    loop = require("claude_code.loop")(opts, function(id, context)
+      uji.provider.add({ id = provider, models = { model(id, context) } })
+    end),
     base_url = "",
+    context_window = 200000,
     models = models,
   })
   files.register()

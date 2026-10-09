@@ -131,6 +131,11 @@ in
 
   config = {
     programs.uji.packs.uji-plugins = lib.mkDefault self;
+    programs.uji.plugins = {
+      statusline.enable = lib.mkDefault true;
+      themes.enable = lib.mkDefault true;
+      websearch.enable = lib.mkDefault true;
+    };
 
     assertions = lib.optionals mcp.enable (
       lib.mapAttrsToList (name: server: {
