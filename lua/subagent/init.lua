@@ -275,38 +275,6 @@ local function execute(args, ctx, stops)
   return table.concat(parts, "\n\n")
 end
 
-local function pick()
-  local agents = sorted(M.agents(state.opts.scope))
-  if #agents == 0 then
-    uji.notify("no agents found; add one to agents/ in your config directory")
-    return
-  end
-  local items, chosen = {}, {}
-  for index, agent in ipairs(agents) do
-    items[index] = agent.name .. " - " .. agent.description
-    chosen[items[index]] = agent.name
-  end
-  local choice = uji.ui.select({ title = "Agents", items = items })
-  if choice then
-    uji.input.set("/agent " .. chosen[choice] .. " ")
-  end
-end
-
-local function delegate(args)
-  local name, task = args:match("^(%S+)%s+(.-)%s*$")
-  if not name then
-    return pick()
-  end
-  if not M.agents(state.opts.scope)[name] then
-    uji.notify("there is no agent " .. name)
-    return
-  end
-  uji.session.submit(string.format(
-    "Run the `%s` agent with the subagent tool on this task, then tell me what it found.\n\n%s",
-    name, task
-  ))
-end
-
 local TASK = {
   type = "object",
   properties = {
@@ -375,11 +343,6 @@ function M.setup(opts)
         for _, stop in ipairs(stops) do stop() end
       end
     end,
-  })
-
-  uji.command.add("agent", {
-    desc = "run an agent on a task: /agent <name> <task>",
-    handler = delegate,
   })
 end
 

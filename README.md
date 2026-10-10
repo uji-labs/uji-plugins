@@ -75,11 +75,9 @@ Fuzzy picker.
 
 | | |
 |---|---|
-| `<C-p>` / `/find` | files, opens the pick in `$EDITOR` |
-| `<C-a>` / `/attach` | files, `@path` into the composer |
-| `<C-g>` / `/branch` | git branches, asks the model about one |
-| `<C-r>` / `/history` | your past messages, refills the composer |
-| `/grep <pattern>` | ripgrep hits, opens the matching file |
+| `<C-p>` / `telescope_find` | files, opens the pick in `$EDITOR` |
+| `<C-r>` / `telescope_history` | your past messages, refills the composer |
+| `<C-f>` / `telescope_search` | ripgrep as you type, opens the matching file |
 
 Opening suspends the TUI through `uji.ui.exec`, runs the editor on the real
 terminal, then restores. `UJI_EDITOR` wins over `VISUAL` over `EDITOR`.
