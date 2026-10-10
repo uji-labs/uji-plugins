@@ -142,6 +142,27 @@ uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.context.add`,
 `uji.ui.exec`, `uji.ui.toolbar`, `uji.ui.theme`, `uji.ui.save_theme`, ito,
 and `{ priority }` on `uji.on`.
 
+## subagent
+
+A `subagent` tool that hands tasks to agents, each a separate `uji run` with a
+context of its own. Every agent shows as a row under the running tool, with
+its state, the tool it is calling and the tokens it used. `/agent <name>
+<task>` runs one, and `/subagents` lists the agents that ran and opens their
+sessions. See the [subagent docs](https://docs.uji.sh/plugins/subagent.html).
+
+## workflow
+
+A `workflow` tool that runs a Lua script orchestrating many agents with
+`agent()`, `parallel()`, `pipeline()` and `phase()`. Agents show grouped by
+phase under the running tool, `/workflows` inspects, opens and stops runs, and
+`resume` reruns a script while reusing the answers that did not change. Needs
+`subagent`. See the [workflow docs](https://docs.uji.sh/plugins/workflow.html).
+
+```lua
+require("subagent").setup({})
+require("workflow").setup({ concurrency = 4 })
+```
+
 ## claude_code
 
 A `claude-code` provider that runs the `claude` command and shows its work in
