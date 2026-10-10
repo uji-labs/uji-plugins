@@ -77,6 +77,11 @@ in
         websearch = mkPlugin {
           description = "websearch";
           settings = {
+            backend = mkSetting (types.enum [
+              "exa"
+              "searxng"
+            ]) "exa" "Where searches go: Exa's service, or a SearXNG instance at `url`.";
+            url = mkSetting types.str null "The SearXNG instance, for `backend = \"searxng\"`. `SEARXNG_URL` also sets it.";
             policy = mkSetting policy "allow" "Whether the tools ask before they run.";
             count = mkSetting types.int 5 "Results per search.";
             chars = mkSetting types.int 20000 "Characters of a page that `web_fetch` returns at most.";

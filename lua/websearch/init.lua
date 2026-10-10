@@ -1,15 +1,16 @@
 local M = {}
 
-local EXA = "https://mcp.exa.ai/mcp"
+-- Each backend is a module in backend/ with search(opts, query, count, done)
+-- and fetch(opts, url, chars, done).
+local BACKENDS = { exa = true, searxng = true }
 
 local DEFAULTS = {
+  backend = "exa",
   policy = "allow",
   count = 5,
   chars = 20000,
   timeout = 30,
 }
-
-local state = { opts = DEFAULTS }
 
 local function merged(base, over)
   local out = {}
@@ -18,56 +19,18 @@ local function merged(base, over)
   return out
 end
 
-local function answer(response)
-  local ok, reply = pcall(uji.json.decode, response.body:match("data: ([^\n]+)") or response.body)
-  if not ok or type(reply) ~= "table" then
-    return nil, "exa sent an answer that is not JSON"
-  end
-  if type(reply.error) == "table" then
-    return nil, tostring(reply.error.message)
-  end
-  local result = type(reply.result) == "table" and reply.result or {}
-  local texts = {}
-  for _, item in ipairs(result.content or {}) do
-    if item.type == "text" then texts[#texts + 1] = item.text end
-  end
-  local text = table.concat(texts, "\n\n")
-  if result.isError then
-    return nil, text
-  end
-  return text
-end
-
-local function exa(tool, arguments, empty, done)
-  return uji.http.request({
-    url = EXA,
-    method = "POST",
-    timeout = state.opts.timeout,
-    headers = { ["Content-Type"] = "application/json", Accept = "application/json, text/event-stream" },
-    body = uji.json.encode({ jsonrpc = "2.0", id = 1, method = "tools/call", params = { name = tool, arguments = arguments } }),
-  }, function(response, err)
-    if not response then
-      return done("error: " .. err)
-    end
-    if response.status ~= 200 then
-      return done("error: exa answered " .. response.status .. ": " .. response.body:sub(1, 300))
-    end
-    local text, problem = answer(response)
-    if not text then
-      return done("error: " .. problem)
-    end
-    done(text ~= "" and text or empty)
-  end)
-end
-
 function M.setup(opts)
-  state.opts = merged(DEFAULTS, opts)
+  opts = merged(DEFAULTS, opts)
+  if not BACKENDS[opts.backend] then
+    error('websearch: backend must be "exa" or "searxng", not ' .. tostring(opts.backend))
+  end
+  local backend = require("websearch.backend." .. opts.backend)
 
   uji.tool.add("web_search", {
     description = "Search the web and return the top results with their title, url and highlights. "
       .. "Use it for current information, documentation and error messages you do not recognise.",
     subject = "web search",
-    policy = state.opts.policy,
+    policy = opts.policy,
     parameters = {
       type = "object",
       properties = {
@@ -81,8 +44,8 @@ function M.setup(opts)
       if type(query) ~= "string" or query == "" then
         return "error: query is required"
       end
-      local count = math.max(1, math.min(tonumber(args.count) or state.opts.count, 20))
-      return exa("web_search_exa", { query = query, objective = query, numResults = count }, "No results.", ctx.done)
+      local count = math.max(1, math.min(tonumber(args.count) or opts.count, 20))
+      return backend.search(opts, query, count, ctx.done)
     end,
   })
 
@@ -92,7 +55,7 @@ function M.setup(opts)
     subject = function(args)
       return type(args) == "table" and type(args.url) == "string" and args.url or "web fetch"
     end,
-    policy = state.opts.policy,
+    policy = opts.policy,
     parameters = {
       type = "object",
       properties = {
@@ -106,8 +69,8 @@ function M.setup(opts)
       if type(url) ~= "string" or not url:match("^https?://") then
         return "error: url must start with http:// or https://"
       end
-      local chars = math.max(1, tonumber(args.chars) or state.opts.chars)
-      return exa("web_fetch_exa", { urls = { url }, maxCharacters = chars }, "The page has no text.", ctx.done)
+      local chars = math.max(1, tonumber(args.chars) or opts.chars)
+      return backend.fetch(opts, url, chars, ctx.done)
     end,
   })
 end
