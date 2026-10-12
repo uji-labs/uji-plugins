@@ -50,8 +50,9 @@ end)
 
 M.Context = ito.view(function()
   local ctx = uji.session.context()
-  if not ctx.window or ctx.window == 0 then return false end
-  local pct = math.floor(ctx.used / ctx.window * 100 + 0.5)
+  local limit = ctx.usable or ctx.window
+  if not limit or limit == 0 then return false end
+  local pct = math.floor(ctx.used / limit * 100 + 0.5)
   local colors = ito.theme().colors
   return bold(string.format("context %d%%", pct), pct >= CROWDED and colors.notice or colors.syntax.string)
 end)
