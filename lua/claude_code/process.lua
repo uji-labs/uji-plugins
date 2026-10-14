@@ -97,10 +97,29 @@ function Process:receive(frame)
   if self.discarding then
     if frame.type == "result" then
       self.discarding = false
+      self:stopped()
     end
     return
   end
   self:push(frame)
+end
+
+-- The stop is over: the result came back, or the process it belonged to is gone.
+function Process:stopped()
+  local waiting = self.stopping
+  self.stopping = nil
+  if waiting then
+    waiting:resolve()
+  end
+end
+
+-- Waits until the result of the last interrupt has come back, so that a new
+-- turn cannot write its prompt while the one before it is still being stopped.
+function Process:ready()
+  local waiting = self.stopping
+  if waiting then
+    waiting:await()
+  end
 end
 
 function Process:exited(code)
@@ -122,6 +141,7 @@ end
 function Process:close()
   self.closed = true
   self.discarding = false
+  self:stopped()
   if live[self.session.id] == self then
     live[self.session.id] = nil
   end
@@ -139,6 +159,7 @@ function Process:interrupt()
   self.interrupts = self.interrupts + 1
   local round = self.interrupts
   self.discarding = true
+  self.stopping = uji.promise()
   self:write(wire.interrupt("uji-" .. round))
   uji.defer(INTERRUPT_TIMEOUT, function()
     if self.discarding and self.interrupts == round then

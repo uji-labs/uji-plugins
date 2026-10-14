@@ -8,6 +8,8 @@ local wire = require("claude_code.wire")
 
 local KIND = { text_delta = "text", thinking_delta = "reasoning" }
 
+local EMPTY = "claude code: the turn ended without a message"
+
 return function(opts, measured)
   local Loop = uji.class()
 
@@ -131,11 +133,17 @@ return function(opts, measured)
         self.agent:usage(last.usage)
       end
       last.id, last.usage = nil, nil
+      if last.text == "" and not last.reasoning then
+        return self.agent:failed(EMPTY)
+      end
       return self.agent:done(last)
     end
     self:flush()
     local text = type(frame.result) == "string" and frame.result or ""
-    self.agent:done({ type = "assistant", text = text, tool_calls = {} })
+    if text == "" then
+      return self.agent:failed(EMPTY)
+    end
+    return self.agent:done({ type = "assistant", text = text, tool_calls = {} })
   end
 
   function Loop:exited(frame)
@@ -160,6 +168,7 @@ return function(opts, measured)
       fresh = fresh,
     })
     self.process = running
+    running:ready()
     running:begin()
     running:write(wire.user(self.prompt.text, self.prompt.images))
     while true do
