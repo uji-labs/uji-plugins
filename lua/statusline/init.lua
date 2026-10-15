@@ -48,6 +48,15 @@ M.Effort = ito.view(function()
   return effort ~= nil and effort ~= "off" and bold(effort .. " effort", ito.theme().colors.syntax.constant)
 end)
 
+M.Jobs = ito.view(function()
+  local live = 0
+  for _, job in ipairs(uji.jobs.list()) do
+    if job.state == "running" then live = live + 1 end
+  end
+  if live == 0 then return false end
+  return bold(live .. (live == 1 and " job" or " jobs"), ito.theme().colors.accent):on_tap(uji.jobs.pick)
+end)
+
 M.Context = ito.view(function()
   local ctx = uji.session.context()
   local limit = ctx.usable or ctx.window
@@ -93,7 +102,7 @@ M.Bar = ito.view(function(props)
 end)
 
 M.Default = ito.view(function()
-  return M.Bar({ M.Cwd(), M.Model(), M.Effort(), M.Context() })
+  return M.Bar({ M.Cwd(), M.Model(), M.Effort(), M.Jobs(), M.Context() })
 end)
 
 M.Logo = ito.view(function()

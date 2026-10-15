@@ -23,8 +23,9 @@ uji.pack.add({ { dir = "~/Projects/uji-plugins" } })
 ## statusline
 
 Views for status lines. `setup()` declares the default bar as a bottom bar
-toolbar item, with the directory, model, effort and how full the context is. Each segment is a view, `statusline.Bar` joins them with separators, and
-you put bars in toolbar sections with `uji.ui.toolbar`.
+toolbar item, with the directory, model, effort, running jobs and how full the
+context is. Each segment is a view, `statusline.Bar` joins them with separators,
+and you put bars in toolbar sections with `uji.ui.toolbar`.
 
 ```lua
 local ito = require("ito")
@@ -40,11 +41,12 @@ uji.ui.toolbar({
 })
 ```
 
-The segments are `statusline.Cwd`, `Model`, `Effort`, `Context`, `Tokens`,
-`Cache` and `Turns`, and any view of your own goes in a bar the same way. A
-segment that draws nothing gets no separator. `statusline.Logo` shows the uji
-logo while the session is empty; a theme's screen puts it over the transcript
-with `screen.transcript():overlay(statusline.Logo())`.
+The segments are `statusline.Cwd`, `Model`, `Effort`, `Jobs`, `Context`,
+`Tokens`, `Cache` and `Turns`, and any view of your own goes in a bar the same
+way. A segment that draws nothing gets no separator, so `Jobs` is only there
+while something runs, and clicking it opens the jobs picker. `statusline.Logo`
+shows the uji logo while the session is empty; a theme's screen puts it over
+the transcript with `screen.transcript():overlay(statusline.Logo())`.
 
 ## planmode
 
@@ -127,8 +129,10 @@ lines it was written with.
 | `/auto 0.8` / `/auto 80%` | set the threshold for the session |
 | `/auto status` | show both |
 
-The key is uji's to hold: `TYPESAFE_API_KEY`, or the one `/login` saved for
-the `jev` provider in uji's own credential store.
+The key is uji's to hold: `TYPESAFE_API_KEY`, a file that
+`TYPESAFE_API_KEY_FILE` names, one in uji's
+[auth file](https://docs.uji.sh/api/auth.html#the-auth-file), or the one
+`/login` saved for the `jev` provider in uji's own credential store.
 
 ```lua
 require("automode-jev").setup({
