@@ -110,6 +110,28 @@ in
           settings.paths = mkSetting (types.listOf types.str) [ ] "Directories the model can read but not change.";
         };
 
+        automode-jev = mkPlugin {
+          description = "automode-jev";
+          settings = {
+            backend =
+              mkSetting types.str "jev"
+                "Who answers the approval questions: `jev`, TypeSafe's decision model, whose numbers are calibrated, or `session`, the model in use asked over chat, whose number is its own estimate. Any other id names a provider that can answer a decision.";
+            threshold =
+              mkSetting types.number 0.8
+                "How sure the judge must be that a call is safe before it runs unasked, as a probability (0.8) or a percentage (80).";
+            enabled = mkSetting types.bool true "`false` starts each session with auto mode off.";
+            model =
+              mkSetting types.str null
+                "The model that answers, when the backend takes one. Left out, the backend's own default answers.";
+            timeout =
+              mkSetting types.int 10
+                "Seconds per request. Scoring a shell command line by line gets at least 30.";
+            shfmt =
+              mkSetting types.str null
+                "The shfmt that breaks a shell command into lines. The plugin's default is `shfmt` on `PATH`; without it the command keeps its own lines.";
+          };
+        };
+
         themes = mkPlugin {
           description = "themes";
           settings.keys = mkSetting types.str null "A key in normal mode that opens the theme picker.";

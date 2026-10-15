@@ -92,6 +92,52 @@ reusable; `telescope.picker.open(title, items, on_choice)` is the picker.
 require("telescope").setup({ keys = false })
 ```
 
+## automode-jev
+
+Auto mode. A decision model answers the approval questions uji would otherwise
+put to you.
+
+Only calls the tool policy would ask about are asked about; a rule that already
+allows or denies a call still decides it. The judge rates how likely the call
+is to be safe to run unattended. At the threshold or above it runs; below it
+uji asks as usual, with the number in the question. The judge never refuses on
+its own, and any failure (no key, an error, a timeout) leaves the question to
+you.
+
+`backend` names the judge. `"jev"`, the default, is
+[TypeSafe](https://typesafe.ai)'s decision model, which answers through
+`uji.model.decide` with numbers of its own calibration. `"session"` is the
+model uji is already talking to, asked over chat, so any provider works —
+OpenRouter included — and the number is that model's own estimate rather than
+a calibrated one.
+
+A shell command the judge won't run, from `run_command` or Claude Code's
+`Bash`, comes to you broken down: `shfmt` puts each statement and each `&&`
+`||` `|` step on its own line, every line is scored in one more request, and
+the question shows each line's score. With `COLORTERM` set to `truecolor` or
+`24bit` the score runs from red at 0% through yellow to green at 100%;
+otherwise it is green at the threshold or above, yellow from 50%, red below.
+Without `shfmt` on `PATH` (or the `shfmt` setting) the command keeps the
+lines it was written with.
+
+| | |
+|---|---|
+| `/auto` | toggle |
+| `/auto on` / `/auto off` | turn it on or off |
+| `/auto 0.8` / `/auto 80%` | set the threshold for the session |
+| `/auto status` | show both |
+
+The key is uji's to hold: `TYPESAFE_API_KEY`, or the one `/login` saved for
+the `jev` provider in uji's own credential store.
+
+```lua
+require("automode-jev").setup({
+  backend = "session",   -- judge with the model in use; the default is "jev"
+  threshold = 0.8,
+  shfmt = "shfmt",
+})
+```
+
 ## themes
 
 Seven themes and a picker for them.
@@ -136,9 +182,9 @@ require("themes").setup({ keys = "<C-t>" })
 
 ## Requires
 
-uji with `uji.pack`, `uji.job`, `uji.input.capture`, `uji.context.add`,
-`uji.ui.exec`, `uji.ui.toolbar`, `uji.ui.theme`, `uji.ui.save_theme`, ito,
-and `{ priority }` on `uji.on`.
+uji with `uji.pack`, `uji.job`, `uji.model.decide`, `uji.input.capture`,
+`uji.context.add`, `uji.ui.exec`, `uji.ui.toolbar`, `uji.ui.theme`,
+`uji.ui.save_theme`, ito, and `{ priority }` on `uji.on`.
 
 ## claude_code
 
