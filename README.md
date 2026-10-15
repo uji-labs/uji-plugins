@@ -103,6 +103,15 @@ be safe to run unattended. At the threshold or above it runs; below it uji
 asks as usual, with Jev's number in the question. Jev never refuses on its
 own, and any failure (no key, an error, a timeout) leaves the question to you.
 
+A shell command Jev won't run, from `run_command` or Claude Code's `Bash`,
+comes to you broken down: `shfmt` puts each statement and each `&&` `||` `|`
+step on its own line, Jev scores every line in one more request, and the
+question shows each line's score. With `COLORTERM` set to `truecolor` or
+`24bit` the score runs from red at 0% through yellow to green at 100%;
+otherwise it is green at the threshold or above, yellow from 50%, red below.
+Without `shfmt` on `PATH` (or the `shfmt` setting) the command keeps the
+lines it was written with.
+
 | | |
 |---|---|
 | `/auto` | toggle |
@@ -117,6 +126,7 @@ read the first time a call needs it.
 require("jev").setup({
   key_file = "~/.config/typesafe/api_key",
   threshold = 0.8,
+  shfmt = "shfmt",
 })
 ```
 

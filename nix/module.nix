@@ -121,7 +121,12 @@ in
                 "How sure Jev must be that a call is safe before it runs unasked, as a probability (0.8) or a percentage (80).";
             enabled = mkSetting types.bool true "`false` starts each session with auto mode off.";
             model = mkSetting types.str "jev-latest" "The TypeSafe model that answers.";
-            timeout = mkSetting types.int 10 "Seconds per request.";
+            timeout =
+              mkSetting types.int 10
+                "Seconds per request. Scoring a shell command line by line gets at least 30.";
+            shfmt =
+              mkSetting types.str null
+                "The shfmt that breaks a shell command into lines. The plugin's default is `shfmt` on `PATH`; without it the command keeps its own lines.";
           };
         };
 
