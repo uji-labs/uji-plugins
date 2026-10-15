@@ -110,17 +110,19 @@ in
           settings.paths = mkSetting (types.listOf types.str) [ ] "Directories the model can read but not change.";
         };
 
-        jev = mkPlugin {
-          description = "jev";
+        automode-jev = mkPlugin {
+          description = "automode-jev";
           settings = {
-            key_file =
-              mkSetting types.str null
-                "A file holding the TypeSafe API key, read when first needed. `TYPESAFE_API_KEY` wins over it.";
+            backend =
+              mkSetting types.str "jev"
+                "Who answers the approval questions: `jev`, TypeSafe's decision model, whose numbers are calibrated, or `session`, the model in use asked over chat, whose number is its own estimate. Any other id names a provider that can answer a decision.";
             threshold =
               mkSetting types.number 0.8
-                "How sure Jev must be that a call is safe before it runs unasked, as a probability (0.8) or a percentage (80).";
+                "How sure the judge must be that a call is safe before it runs unasked, as a probability (0.8) or a percentage (80).";
             enabled = mkSetting types.bool true "`false` starts each session with auto mode off.";
-            model = mkSetting types.str "jev-latest" "The TypeSafe model that answers.";
+            model =
+              mkSetting types.str null
+                "The model that answers, when the backend takes one. Left out, the backend's own default answers.";
             timeout =
               mkSetting types.int 10
                 "Seconds per request. Scoring a shell command line by line gets at least 30.";

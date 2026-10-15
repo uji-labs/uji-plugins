@@ -1,30 +1,34 @@
--- Auto mode: Jev, TypeSafe's decision model, answers the approval questions
--- uji would otherwise put to you.
+-- Auto mode: a decision model answers the approval questions uji would
+-- otherwise put to you.
 --
--- Only calls the tool policy would *ask* about go to Jev. A before_tool answer
--- replaces the policy outright, so this hook evaluates the policy itself first
--- and stays out of the way when a rule already allows or denies the call: a
--- deny rule for `rm -rf` keeps refusing whatever Jev thinks.
+-- Only calls the tool policy would *ask* about are asked about. A before_tool
+-- answer replaces the policy outright, so this hook evaluates the policy itself
+-- first and stays out of the way when a rule already allows or denies the call:
+-- a deny rule for `rm -rf` keeps refusing whatever the judge thinks.
 --
--- Jev returns a calibrated probability that the call is safe to run
--- unattended. At the threshold or above the call runs; below it uji asks as
--- usual, with Jev's number in the question. Jev never refuses on its own, so
--- the worst a wrong answer costs is a question. Any failure (no key, a non-2xx,
--- a timeout) leaves the decision to the policy, as if the plugin were absent.
+-- uji.model.decide gives a probability that the call is safe to run unattended.
+-- At the threshold or above the call runs; below it uji asks as usual, with the
+-- number in the question. The judge never refuses on its own, so the worst a
+-- wrong answer costs is a question. Any failure (no key, a non-2xx, a timeout)
+-- leaves the decision to the policy, as if the plugin were absent.
 --
--- A shell command Jev won't run, from uji's run_command or Claude Code's Bash,
--- comes to you broken down: shfmt puts each statement and each && || | step on
--- its own line, Jev scores every line in one more request, and the question
--- shows each line's score. In a terminal whose COLORTERM says it has 24-bit
--- colour the score's colour runs from red at 0% through yellow to green at
--- 100%; elsewhere it is green at the threshold or above, yellow from 50% up to
--- it, red below 50%. Without shfmt the command keeps the lines it was written
--- with.
+-- `backend` names the judge: "jev" (the default) is TypeSafe's Jev, a decision
+-- model whose numbers are calibrated; "session" is the model uji is already
+-- talking to, asked over chat, whose number is its own estimate.
 --
---   require("jev").setup({ key_file = "~/.config/typesafe/api_key", threshold = 0.8 })
+-- A shell command the judge won't run, from uji's run_command or Claude Code's
+-- Bash, comes to you broken down: shfmt puts each statement and each && || |
+-- step on its own line, every line is scored in one more request, and the
+-- question shows each line's score. In a terminal whose COLORTERM says it has
+-- 24-bit colour the score's colour runs from red at 0% through yellow to green
+-- at 100%; elsewhere it is green at the threshold or above, yellow from 50% up
+-- to it, red below 50%. Without shfmt the command keeps the lines it was
+-- written with.
 --
--- The key is `key`, then TYPESAFE_API_KEY (the variable TypeSafe's SDK reads),
--- then the contents of `key_file`.
+--   require("automode-jev").setup({ threshold = 0.8, backend = "session" })
+--
+-- The key is uji's to hold: TYPESAFE_API_KEY, or the one /login saved for the
+-- jev provider.
 --
 -- tool.compiled() and tool.subject() are uji internals (lua/uji/core/tool.lua):
 -- the public API can set a policy but not evaluate one. Agent:verdict in
@@ -37,8 +41,7 @@ local tool = require("uji.core.tool")
 local M = {}
 
 local DEFAULTS = {
-  url = "https://api.typesafe.ai/v1/systemone",
-  model = "jev-latest",
+  backend = "jev",
   threshold = 0.8,
   enabled = true,
   timeout = 10,
@@ -101,7 +104,7 @@ local BARE = {
 }
 
 local opts = DEFAULTS
-local state = { enabled = true, safe = DEFAULTS.threshold, request = nil, key = nil, warned = false, pending = {} }
+local state = { enabled = true, safe = DEFAULTS.threshold, request = nil, warned = false, pending = {} }
 
 local function merged(base, over)
   local out = {}
@@ -150,35 +153,6 @@ local function resolved(directory, subject)
   return uji.fs.join(directory, subject)
 end
 
-local function key()
-  if state.key then
-    return state.key
-  end
-  if opts.key and opts.key ~= "" then
-    state.key = opts.key
-    return state.key
-  end
-  local env = os.getenv("TYPESAFE_API_KEY")
-  if env and env ~= "" then
-    state.key = env
-    return env
-  end
-  if not opts.key_file then
-    return nil
-  end
-  -- Read lazily: a secrets manager may write the file after uji has started.
-  local file = io.open(resolved(".", opts.key_file), "r")
-  if not file then
-    return nil
-  end
-  local text = file:read("*a"):gsub("%s+$", "")
-  file:close()
-  if text ~= "" then
-    state.key = text
-  end
-  return state.key
-end
-
 -- Once per run of failures, so an outage doesn't bury the screen in notices.
 local function warn(message)
   if not state.warned then
@@ -207,13 +181,13 @@ local function question(name)
   return entry and entry.display.question or ("Would you like to run `" .. name .. "`?")
 end
 
--- Ends the state with the user's request, which is what Jev weighs the call
--- against.
+-- Ends the state with the user's request, which is what the judge weighs the
+-- call against. uji joins the parts as paragraphs.
 local function framed(parts)
   if state.request then
     parts[#parts + 1] = "The user's latest request: " .. clip(state.request, MAX_REQUEST)
   end
-  return table.concat(parts, "\n\n")
+  return parts
 end
 
 local function describe(name, args, directory)
@@ -223,56 +197,60 @@ local function describe(name, args, directory)
   })
 end
 
--- Asks Jev every question about one state and gives the probabilities by
--- question id. An answer without one is left out.
-local function system_one(api_key, text, questions, timeout)
-  local done = uji.promise()
-  uji.http.request({
-    url = opts.url,
-    method = "POST",
-    headers = {
-      Authorization = "Bearer " .. api_key,
-      ["Content-Type"] = "application/json",
-    },
-    body = uji.json.encode({
-      model = opts.model,
-      state = text,
-      questions = questions,
-    }),
-    timeout = timeout,
-  }, function(response, err)
-    done:resolve(response, err)
-  end)
-  local response, err = done:await()
-  if not response then
-    return nil, "Jev request failed: " .. tostring(err)
+-- Who answers: "session" is the model uji is talking to, anything else names a
+-- provider uji knows, such as the jev provider.
+local function decider()
+  if opts.backend == "session" then
+    return nil
   end
-  if response.status ~= 200 then
-    return nil, "Jev answered HTTP " .. response.status
-  end
-  local ok, body = pcall(uji.json.decode, response.body)
-  if not ok or type(body) ~= "table" or type(body.answers) ~= "table" then
-    return nil, "Jev's answer had no answers"
-  end
-  local probabilities = {}
-  for id in pairs(questions) do
-    local answer = body.answers[id]
-    if type(answer) == "table" and type(answer.noul) == "number" then
-      probabilities[id] = answer.noul
-    end
-  end
-  return probabilities
+  return opts.backend
 end
 
-local function classify(api_key, text)
-  local probabilities, err = system_one(api_key, text, { safe = { type = "noul", instructions = QUESTION } }, opts.timeout)
-  if not probabilities then
+-- What to call whoever answers, in uji's own name for it.
+local function judge_name()
+  local id = decider()
+  if not id then
+    return "the model in use"
+  end
+  local provider = uji.provider.get(id)
+  return provider and provider.name or id
+end
+
+-- Asks every question about one state and gives the probabilities by question
+-- id, and who answered. uji leaves out a probability that is not one, so a
+-- question without one is asked instead.
+local function asked(text, questions, timeout)
+  local found, failure = uji.model.decide({
+    provider = decider(),
+    model = opts.model,
+    state = text,
+    questions = questions,
+    timeout = timeout,
+  })
+  if not found then
+    return nil, failure and failure.message or "the decision failed"
+  end
+  return found
+end
+
+-- The label the question puts on the number: a judge whose numbers are
+-- calibrated, or the model in use and its own estimate.
+local function judge(found)
+  if found.calibrated then
+    return judge_name()
+  end
+  return "the model in use"
+end
+
+local function classify(text)
+  local found, err = asked(text, { safe = QUESTION }, opts.timeout)
+  if not found then
     return nil, err
   end
-  if not probabilities.safe then
-    return nil, "Jev's answer had no probability"
+  if not found.probabilities.safe then
+    return nil, "the answer had no probability"
   end
-  return probabilities.safe
+  return found.probabilities.safe, found
 end
 
 -- Runs argv with input on stdin and gives the lines it prints, or nil when it
@@ -360,14 +338,14 @@ local function scored(line)
   return bare ~= "" and not BARE[bare] and bare:sub(1, 1) ~= "#"
 end
 
--- Scores each line in one request, keyed by its number as a string.
-local function judged(api_key, lines, directory)
+-- Scores each line in one more request, keyed by its number as a string.
+local function judged(lines, directory)
   local listing, questions, count = {}, {}, 0
   for index, line in ipairs(lines) do
     listing[index] = index .. ": " .. line
     if count < MAX_LINES and scored(line) then
       count = count + 1
-      questions[tostring(index)] = { type = "noul", instructions = string.format(LINE_QUESTION, index) }
+      questions[tostring(index)] = string.format(LINE_QUESTION, index)
     end
   end
   if count == 0 then
@@ -379,7 +357,11 @@ local function judged(api_key, lines, directory)
       .. " wants to run this shell command, formatted with one step on each numbered line:",
     clip(table.concat(listing, "\n"), MAX_ARGUMENTS),
   })
-  return system_one(api_key, text, questions, math.max(opts.timeout, LINES_TIMEOUT))
+  local found, err = asked(text, questions, math.max(opts.timeout, LINES_TIMEOUT))
+  if not found then
+    return nil, err
+  end
+  return found.probabilities
 end
 
 -- The approval body with the command in it swapped for its lines, each after
@@ -404,14 +386,14 @@ local function painted(body, entry)
   return spans
 end
 
--- A command that stays one line keeps the score Jev already gave it. When the
--- line scores fail, the lines still show, unscored.
-local function explain(api_key, title, command, directory, safe)
+-- A command that stays one line keeps the score it already got. When the line
+-- scores fail, the lines still show, unscored.
+local function explain(title, command, directory, safe)
   local lines = formatted(command)
   local scores = { ["1"] = safe }
   if #lines > 1 then
     local err
-    scores, err = judged(api_key, lines, directory)
+    scores, err = judged(lines, directory)
     if not scores then
       warn(err)
       scores = {}
@@ -453,29 +435,30 @@ local function before_tool(call)
   if verdict(call.name, call.arguments, directory) ~= "ask" then
     return nil
   end
-  local api_key = key()
-  if not api_key then
-    warn("no Jev key; set TYPESAFE_API_KEY or key_file")
-    return nil
-  end
-  local safe, err = classify(api_key, describe(call.name, call.arguments, directory))
+  local safe, found = classify(describe(call.name, call.arguments, directory))
   if not safe then
-    warn(err)
+    warn(found)
     return nil
   end
   state.warned = false
   if safe >= state.safe then
     return { allow = true }
   end
-  local title = string.format("%s (Jev: %s safe, auto needs %s)", question(call.name), percent(safe), percent(state.safe))
+  local title = string.format(
+    "%s (%s: %s safe, auto needs %s)",
+    question(call.name),
+    judge(found),
+    percent(safe),
+    percent(state.safe)
+  )
   if SHELLS[call.name] and type(call.arguments.command) == "string" then
-    explain(api_key, title, call.arguments.command, directory, safe)
+    explain(title, call.arguments.command, directory, safe)
   end
   return { ask = title }
 end
 
 -- "0.8", "80" and "80%" all mean 80%. A bare number up to 1 is a probability,
--- so "1" is 100% (only calls Jev is certain about run unasked).
+-- so "1" is 100% (only calls the judge is certain about run unasked).
 function M.threshold(text)
   local digits, sign = tostring(text):match("^([%d%.]+)(%%?)$")
   local value = tonumber(digits)
@@ -493,7 +476,7 @@ end
 
 local function report()
   if state.enabled then
-    uji.notify("auto mode on, runs calls Jev rates " .. percent(state.safe) .. " safe or more")
+    uji.notify("auto mode on, runs calls rated " .. percent(state.safe) .. " safe or more by " .. judge_name())
   else
     uji.notify("auto mode off, threshold " .. percent(state.safe))
   end
@@ -520,9 +503,9 @@ function M.setup(options)
   opts = merged(DEFAULTS, options)
   local safe = M.threshold(opts.threshold)
   if not safe then
-    error("jev: threshold must be a probability (0..1) or a percentage, not " .. tostring(opts.threshold))
+    error("automode-jev: threshold must be a probability (0..1) or a percentage, not " .. tostring(opts.threshold))
   end
-  state = { enabled = opts.enabled ~= false, safe = safe, request = nil, key = nil, warned = false, pending = {} }
+  state = { enabled = opts.enabled ~= false, safe = safe, request = nil, warned = false, pending = {} }
 
   -- Once, so a second setup doesn't wrap the wrapper.
   if not confirm then
@@ -532,11 +515,11 @@ function M.setup(options)
 
   uji.on("message_submitted", function(message)
     state.request = message.text
-  end, { name = "jev-request" })
-  uji.on("before_tool", before_tool, { name = "jev-auto" })
+  end, { name = "automode-jev-request" })
+  uji.on("before_tool", before_tool, { name = "automode-jev" })
 
   uji.command.add("auto", {
-    desc = "auto mode: Jev approves routine tool calls. /auto [on|off|status|<threshold>]",
+    desc = "auto mode: the judge approves routine tool calls. /auto [on|off|status|<threshold>]",
     handler = command,
   })
 end
