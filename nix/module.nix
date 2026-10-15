@@ -110,6 +110,21 @@ in
           settings.paths = mkSetting (types.listOf types.str) [ ] "Directories the model can read but not change.";
         };
 
+        jev = mkPlugin {
+          description = "jev";
+          settings = {
+            key_file =
+              mkSetting types.str null
+                "A file holding the TypeSafe API key, read when first needed. `TYPESAFE_API_KEY` wins over it.";
+            threshold =
+              mkSetting types.number 0.8
+                "How sure Jev must be that a call is safe before it runs unasked, as a probability (0.8) or a percentage (80).";
+            enabled = mkSetting types.bool true "`false` starts each session with auto mode off.";
+            model = mkSetting types.str "jev-latest" "The TypeSafe model that answers.";
+            timeout = mkSetting types.int 10 "Seconds per request.";
+          };
+        };
+
         themes = mkPlugin {
           description = "themes";
           settings.keys = mkSetting types.str null "A key in normal mode that opens the theme picker.";

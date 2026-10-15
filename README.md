@@ -92,6 +92,34 @@ reusable; `telescope.picker.open(title, items, on_choice)` is the picker.
 require("telescope").setup({ keys = false })
 ```
 
+## jev
+
+Auto mode. Jev, [TypeSafe](https://typesafe.ai)'s decision model, answers the
+approval questions uji would otherwise put to you.
+
+Only calls the tool policy would ask about go to Jev; a rule that already
+allows or denies a call still decides it. Jev rates how likely the call is to
+be safe to run unattended. At the threshold or above it runs; below it uji
+asks as usual, with Jev's number in the question. Jev never refuses on its
+own, and any failure (no key, an error, a timeout) leaves the question to you.
+
+| | |
+|---|---|
+| `/auto` | toggle |
+| `/auto on` / `/auto off` | turn it on or off |
+| `/auto 0.8` / `/auto 80%` | set the threshold for the session |
+| `/auto status` | show both |
+
+The key is `key`, then `TYPESAFE_API_KEY`, then the contents of `key_file`,
+read the first time a call needs it.
+
+```lua
+require("jev").setup({
+  key_file = "~/.config/typesafe/api_key",
+  threshold = 0.8,
+})
+```
+
 ## themes
 
 Seven themes and a picker for them.
