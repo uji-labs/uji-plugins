@@ -25,6 +25,8 @@ in
       options = {
         statusline = mkPlugin { description = "statusline"; };
 
+        memory = mkPlugin { description = "memory"; };
+
         planmode = mkPlugin {
           description = "planmode";
           settings = {

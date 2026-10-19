@@ -8,6 +8,7 @@ Plugins for [uji](https://github.com/uji-labs/uji).
 uji.pack.add({ "uji-labs/uji-plugins" })
 
 require("statusline").setup({})
+require("memory").setup({})
 require("planmode").setup({})
 require("telescope").setup({})
 require("themes").setup({})
@@ -47,6 +48,25 @@ way. A segment that draws nothing gets no separator, so `Jobs` is only there
 while something runs, and clicking it opens the jobs picker. `statusline.Logo`
 shows the uji logo while the session is empty; a theme's screen puts it over
 the transcript with `screen.transcript():overlay(statusline.Logo())`.
+
+## memory
+
+Notes uji writes for itself, kept across sessions. uji reads the index of them
+before every turn and fetches a note file with `read_file` when one matters.
+
+| | |
+|---|---|
+| `MEMORY.md` | The index, one line per topic, read at 200 lines or 25 KB. |
+| `<topic>.md` | The notes themselves, under `<data>/memory/<project>/`. |
+| `/memory` | Lists the index and the topic files, and opens the one you pick in `$EDITOR`. |
+| `remember` | The tool uji adds a note with, under a topic of its choosing. |
+
+Instructions you write are not this plugin's: uji reads `AGENTS.md`, `CLAUDE.md`
+and `AGENTS.override.md` in the folder stack itself.
+
+```lua
+require("memory").setup()
+```
 
 ## planmode
 
