@@ -7,7 +7,6 @@ Plugins for [uji](https://github.com/uji-labs/uji).
 ```lua
 uji.pack.add({ "uji-labs/uji-plugins" })
 
-require("statusline").setup({})
 require("memory").setup({})
 require("planmode").setup({})
 require("telescope").setup({})
@@ -23,21 +22,22 @@ uji.pack.add({ { dir = "~/Projects/uji-plugins" } })
 
 ## statusline
 
-Views for status lines. `setup()` declares the default bar as a bottom bar
-toolbar item, with the directory, model, effort, running jobs and how full the
-context is. Each segment is a view, `statusline.Bar` joins them with separators,
-and you put bars in toolbar sections with `uji.ui.toolbar`.
+Deprecated: uji draws its own status line now. The views below still work for
+custom bars.
+
+`setup()` draws the default bar as uji's status line: directory, model, effort,
+running jobs and context. Build a bar from the segment views with
+`statusline.Bar`, then show it with `uji.ui.status` or `uji.ui.toolbar`.
 
 ```lua
 local ito = require("ito")
 local statusline = require("statusline")
 
+uji.ui.status(statusline.Bar({ statusline.Cwd(), ito.Spacer(), statusline.Context() }))
+
 uji.ui.toolbar({
   ito.ToolbarItem(ito.ToolbarPlacement.keyboard, function()
     return statusline.Bar({ statusline.Model(), ito.Spacer(), statusline.Effort() })
-  end),
-  ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
-    return statusline.Bar({ statusline.Cwd(), ito.Spacer(), statusline.Context() })
   end),
 })
 ```
@@ -45,7 +45,7 @@ uji.ui.toolbar({
 The segments are `statusline.Cwd`, `Model`, `Effort`, `Jobs`, `Context`,
 `Tokens`, `Cache` and `Turns`, and any view of your own goes in a bar the same
 way. A segment that draws nothing gets no separator, so `Jobs` is only there
-while something runs, and clicking it opens the jobs picker. `statusline.Logo`
+while something runs, and clicking it opens the jobs list. `statusline.Logo`
 shows the uji logo while the session is empty; a theme's screen puts it over
 the transcript with `screen.transcript():overlay(statusline.Logo())`.
 

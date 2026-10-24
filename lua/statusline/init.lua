@@ -1,6 +1,8 @@
 local ito = require("ito")
 
-local M = {}
+local M = {
+  deprecated = "the status line is built in now",
+}
 
 local CROWDED = 80
 local SEPARATOR = "  ·  "
@@ -54,7 +56,7 @@ M.Jobs = ito.view(function()
     if job.state == "running" then live = live + 1 end
   end
   if live == 0 then return false end
-  return bold(live .. (live == 1 and " job" or " jobs"), ito.theme().colors.accent):on_tap(uji.jobs.pick)
+  return bold(live .. (live == 1 and " job" or " jobs"), ito.theme().colors.accent):on_tap(uji.jobs.show)
 end)
 
 M.Context = ito.view(function()
@@ -113,7 +115,7 @@ function M.setup()
   if M.shown then
     M.shown:remove()
   end
-  M.shown = uji.ui.toolbar({ ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, M.Default) })
+  M.shown = uji.ui.status(M.Default)
 end
 
 return M
