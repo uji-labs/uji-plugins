@@ -31,7 +31,8 @@ local function screen(slots)
     slots.modals(),
     ito.ToolbarItems(placement.keyboard),
     slots.composer(),
-    ito.Spacer():height(1),
+    slots.jobs(),
+    slots.status(),
     ito.ToolbarItems(placement.bottom_bar),
   })
 end

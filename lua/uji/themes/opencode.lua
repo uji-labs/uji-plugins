@@ -68,6 +68,8 @@ local function screen(parts)
     parts.modals(),
     ito.ToolbarItems(placement.keyboard, ito.HStack),
     prompt(parts.composer()),
+    parts.jobs(),
+    parts.status(),
     ito.ToolbarItems(placement.bottom_bar),
   }):padding({ horizontal = 2 })
 end
